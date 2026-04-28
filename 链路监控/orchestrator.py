@@ -62,6 +62,28 @@ def _now_ms() -> float:
     return time.monotonic() * 1000
 
 
+def _section_duration_ms(trace: Dict[str, Any], section: str) -> int:
+    value = trace.get(section)
+    if not isinstance(value, dict):
+        return 0
+    duration = value.get("duration_ms")
+    return int(duration) if isinstance(duration, (int, float)) else 0
+
+
+def _build_timing(trace: Dict[str, Any]) -> Dict[str, int]:
+    search_ms = _section_duration_ms(trace, "search")
+    narration_ms = _section_duration_ms(trace, "narration")
+    tts_ms = _section_duration_ms(trace, "tts")
+    voice_total_ms = narration_ms + tts_ms
+    return {
+        "search_ms": search_ms,
+        "narration_ms": narration_ms,
+        "tts_ms": tts_ms,
+        "voice_total_ms": voice_total_ms,
+        "end_to_end_ms": search_ms + voice_total_ms,
+    }
+
+
 def tail_jsonl(path: Path, from_start: bool = False) -> Generator[Dict[str, Any], None, None]:
     """tail -F 一个 jsonl, yield 每行解析后的 dict. 文件不存在时阻塞等待."""
     while not path.exists():
@@ -157,6 +179,7 @@ class Orchestrator:
             "search": None,
             "narration": None,
             "tts": None,
+            "timing": None,
             "error": None,
         }
         self.stats["total"] += 1
@@ -184,9 +207,14 @@ class Orchestrator:
 
         trace["stage"] = "completed"
         trace["ts_completed"] = _now_iso()
+        trace["timing"] = _build_timing(trace)
         self.stats["completed"] += 1
         audio = trace["tts"]["audio_path"] if trace["tts"] else "(skipped)"
-        print(f"[{short}] completed: audio={audio}")
+        print(
+            f"[{short}] completed: audio={audio} "
+            f"voice={trace['timing']['voice_total_ms']}ms "
+            f"total={trace['timing']['end_to_end_ms']}ms"
+        )
         self._emit_event(trace, "completed")
         return trace
 
@@ -399,6 +427,7 @@ class Orchestrator:
                 if isinstance(trace.get("tts"), dict)
                 else None
             )
+            event["timing"] = trace.get("timing") or _build_timing(trace)
         self.event_writer.write(event)
 
 

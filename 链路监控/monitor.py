@@ -82,10 +82,25 @@ def _format_event(event: Dict[str, Any]) -> str:
             f"({tts.get('duration_ms')}ms)"
         )
     if stage == "completed":
-        return f"[{short}] completed audio={event.get('audio_path') or '(skipped)'}"
+        timing = event.get("timing") if isinstance(event.get("timing"), dict) else {}
+        suffix = ""
+        if timing:
+            suffix = (
+                f" voice={_format_duration(timing.get('voice_total_ms'))}"
+                f" total={_format_duration(timing.get('end_to_end_ms'))}"
+            )
+        return f"[{short}] completed audio={event.get('audio_path') or '(skipped)'}{suffix}"
     if str(stage).startswith("failed"):
         return f"[{short}] {stage} error={error}"
     return f"[{short}] {stage} error={error}"
+
+
+def _format_duration(value: Any) -> str:
+    if not isinstance(value, (int, float)):
+        return "?"
+    if value >= 1000:
+        return f"{value / 1000:.1f}s"
+    return f"{int(value)}ms"
 
 
 def _print_summary(stage_counts: Counter, error_counts: Counter) -> None:
