@@ -32,6 +32,7 @@ project.private.config.json
 弹幕提取/DouyinLiveWebFetcher/output/
 语音生成/output/
 链路监控/audio/
+链路监控/events/
 链路监控/traces/
 链路监控/codex_*.jsonl
 小程序API提取岗位信息/job_search*.json

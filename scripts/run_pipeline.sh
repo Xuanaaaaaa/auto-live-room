@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Start the pipeline monitor on the host machine.
+# Start the live-room orchestrator on the host machine.
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=lib.sh
@@ -10,7 +10,7 @@ load_env
 
 MONITOR_DIR="$ROOT_DIR/链路监控"
 PY="$ROOT_DIR/语音生成/.venv/bin/python"
-MAIN="$MONITOR_DIR/pipeline_monitor.py"
+MAIN="$MONITOR_DIR/orchestrator.py"
 
 require_executable "$PY" "Run ./scripts/bootstrap.sh first."
 require_file "$MAIN"
@@ -53,10 +53,14 @@ if [[ -n "${TRACES_OUT:-}" ]]; then
   cmd+=("--traces-out" "$TRACES_OUT")
 fi
 
+if [[ -n "${EVENTS_OUT:-}" ]]; then
+  cmd+=("--events-out" "$EVENTS_OUT")
+fi
+
 audio_dir="${AUDIO_DIR:-$ROOT_DIR/链路监控/audio}"
 cmd+=("--audio-dir" "$audio_dir")
 
 cd "$MONITOR_DIR"
-echo "Starting pipeline monitor..."
+echo "Starting orchestrator..."
 echo "Danmu JSONL: $danmu_jsonl"
 exec "${cmd[@]}"
