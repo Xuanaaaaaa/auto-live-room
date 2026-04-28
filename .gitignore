@@ -1,0 +1,40 @@
+.env
+.env.*
+!.env.example
+
+# Python
+*.pyc
+__pycache__/
+*.pyo
+*.pyd
+.Python
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+venv/
+
+# Node / frontend
+node_modules/
+dist/
+build/
+.hbuilderx/
+project.private.config.json
+
+# macOS / editor / local agents
+.DS_Store
+.idea/
+.vscode/
+.claude/
+
+# Runtime outputs
+弹幕提取/DouyinLiveWebFetcher/danmu/
+弹幕提取/DouyinLiveWebFetcher/output/
+语音生成/output/
+链路监控/audio/
+链路监控/traces/
+链路监控/codex_*.jsonl
+小程序API提取岗位信息/job_search*.json
+
+# Preserved nested upstream repo metadata, if present.
+.git-upstream-backup/

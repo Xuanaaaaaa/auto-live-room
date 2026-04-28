@@ -1,0 +1,2 @@
+obsws-python>=1.8.0,<2
+watchdog>=4,<7
