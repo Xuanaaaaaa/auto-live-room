@@ -76,3 +76,50 @@ flag_enabled() {
     *) return 1 ;;
   esac
 }
+
+ensure_runtime_dirs() {
+  mkdir -p "${LOG_DIR:-$ROOT_DIR/logs}" "${RUN_DIR:-$ROOT_DIR/.run}"
+}
+
+pid_is_running() {
+  local pid="${1:-}"
+  [[ -n "$pid" ]] && kill -0 "$pid" 2>/dev/null
+}
+
+pid_file_is_running() {
+  local path="$1"
+  [[ -f "$path" ]] || return 1
+  local pid
+  pid="$(cat "$path" 2>/dev/null || true)"
+  pid_is_running "$pid"
+}
+
+wait_for_file_newer_than() {
+  local pattern="$1"
+  local previous="${2:-}"
+  local timeout_seconds="${3:-30}"
+  local label="${4:-file}"
+  python3 - "$pattern" "$previous" "$timeout_seconds" "$label" <<'PY'
+import glob
+import os
+import sys
+import time
+from pathlib import Path
+
+pattern, previous, timeout_s, label = sys.argv[1:5]
+deadline = time.time() + float(timeout_s)
+previous_path = Path(previous) if previous else None
+
+while True:
+    files = [Path(path) for path in glob.glob(os.path.expanduser(pattern)) if Path(path).is_file()]
+    if files:
+        latest = max(files, key=lambda path: (path.stat().st_mtime_ns, str(path)))
+        if previous_path is None or latest.resolve() != previous_path.resolve():
+            print(latest)
+            raise SystemExit(0)
+    if time.time() >= deadline:
+        print(f"ERROR: timed out waiting for {label}: {pattern}", file=sys.stderr)
+        raise SystemExit(1)
+    time.sleep(0.5)
+PY
+}

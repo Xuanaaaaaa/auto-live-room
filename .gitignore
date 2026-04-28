@@ -28,6 +28,8 @@ project.private.config.json
 .claude/
 
 # Runtime outputs
+logs/
+.run/
 弹幕提取/DouyinLiveWebFetcher/danmu/
 弹幕提取/DouyinLiveWebFetcher/output/
 语音生成/output/
