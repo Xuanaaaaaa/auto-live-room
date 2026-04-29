@@ -15,10 +15,7 @@ MAIN="$DANMU_DIR/main.py"
 require_executable "$PY" "Run ./scripts/bootstrap.sh first."
 require_file "$MAIN"
 
-if [[ -z "${LIVE_ID:-}" ]]; then
-  echo "ERROR: LIVE_ID is empty. Set LIVE_ID in project .env." >&2
-  exit 1
-fi
+prompt_live_id
 
 cd "$DANMU_DIR"
 echo "Starting danmu fetcher..."

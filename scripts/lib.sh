@@ -77,6 +77,45 @@ flag_enabled() {
   esac
 }
 
+trim_value() {
+  local value="$1"
+  value="${value#"${value%%[![:space:]]*}"}"
+  value="${value%"${value##*[![:space:]]}"}"
+  printf '%s' "$value"
+}
+
+prompt_live_id() {
+  local input current
+  current="${LIVE_ID:-}"
+
+  if [[ ! -t 0 ]]; then
+    if [[ -z "$current" ]]; then
+      echo "ERROR: LIVE_ID is empty. Set LIVE_ID in project .env or pass LIVE_ID=... before running this script." >&2
+      exit 1
+    fi
+    export LIVE_ID="$current"
+    return
+  fi
+
+  if [[ -n "$current" ]]; then
+    read -r -p "LIVE_ID [$current]: " input
+    input="$(trim_value "$input")"
+    if [[ -n "$input" ]]; then
+      current="$input"
+    fi
+  else
+    while [[ -z "$current" ]]; do
+      read -r -p "LIVE_ID: " input
+      current="$(trim_value "$input")"
+      if [[ -z "$current" ]]; then
+        echo "LIVE_ID cannot be empty." >&2
+      fi
+    done
+  fi
+
+  export LIVE_ID="$current"
+}
+
 ensure_runtime_dirs() {
   mkdir -p "${LOG_DIR:-$ROOT_DIR/logs}" "${RUN_DIR:-$ROOT_DIR/.run}"
 }

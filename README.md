@@ -54,6 +54,8 @@ DOUBAO_TTS_API_KEY=你的豆包TTSKey
 ./scripts/start_all.sh
 ```
 
+脚本会提示输入 `LIVE_ID`；如果 `.env` 里已有默认值，直接回车沿用，输入新值则仅本次启动覆盖。
+
 查看状态：
 
 ```bash
@@ -79,6 +81,8 @@ DOUBAO_TTS_API_KEY=你的豆包TTSKey
 ```bash
 ./scripts/run_danmu.sh
 ```
+
+同样会提示输入 `LIVE_ID`。
 
 单独启动编排器：
 

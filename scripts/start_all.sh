@@ -15,10 +15,8 @@ STARTUP_WAIT_SECONDS="${STARTUP_WAIT_SECONDS:-30}"
 ensure_runtime_dirs
 
 require_live_id() {
-  if [[ -z "${LIVE_ID:-}" ]]; then
-    echo "ERROR: LIVE_ID is empty. Set LIVE_ID in project .env." >&2
-    exit 1
-  fi
+  prompt_live_id
+  echo "[config] LIVE_ID=$LIVE_ID"
 }
 
 service_pid_file() {
