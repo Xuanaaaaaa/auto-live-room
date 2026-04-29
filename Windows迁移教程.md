@@ -4,6 +4,8 @@
 
 当前推荐方案是：**Windows 安装 OBS Studio，项目运行在 WSL2 Ubuntu 中**。这样可以继续使用现有的 bash 脚本、Python venv、日志和后台进程管理方式，迁移成本最低。
 
+如果你的目标是让 WSL2 中生成的 TTS 音频自动进入 Windows OBS，按本文完成基础迁移后，再看 [Windows OBS音频播放对接手册.md](Windows%20OBS音频播放对接手册.md)。
+
 ## 1. 当前适配结论
 
 ### 推荐：WSL2 Ubuntu

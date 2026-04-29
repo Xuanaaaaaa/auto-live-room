@@ -166,6 +166,7 @@ Windows OBS Studio
 - [全链路运行手册.md](全链路运行手册.md)
 - [部署脚本说明.md](部署脚本说明.md)
 - [Windows迁移教程.md](Windows迁移教程.md)
+- [Windows OBS音频播放对接手册.md](Windows%20OBS音频播放对接手册.md)
 
 ## 安全提醒
 
