@@ -251,7 +251,74 @@ OBS_PASSWORD="你的OBS WebSocket密码" \
 --wrap-width 28
 ```
 
-## 9. 常见问题
+## 9. TTS 音频自动播放
+
+文字源更新只负责显示当前查询。TTS 音频播放使用另一个独立旁路脚本，它监听 `链路监控/events/events_*.jsonl` 中的 `audio_path`，然后控制 OBS 媒体源播放 mp3。
+
+### 9.1 创建媒体源
+
+在 OBS 的“来源”区域点击 `+`：
+
+```text
+媒体源
+```
+
+名称建议设为：
+
+```text
+岗位语音
+```
+
+设置建议：
+
+- 本地文件：先任选一个 mp3 占位。
+- 循环：关闭。
+- 源激活时重新开始播放：开启。
+
+### 9.2 dry-run 验证事件读取
+
+回到项目根目录：
+
+```bash
+OBS_AUDIO_DRY_RUN=1 OBS_AUDIO_ONCE=1 ./scripts/run_obs_audio.sh
+```
+
+如果最新 events 文件没有音频事件，可以指定一份有音频的 events 文件：
+
+```bash
+OBS_AUDIO_DRY_RUN=1 OBS_AUDIO_ONCE=1 \
+OBS_AUDIO_EVENTS_FILE=链路监控/events/events_20260428_171858.jsonl \
+./scripts/run_obs_audio.sh
+```
+
+期望看到：
+
+```text
+[dry-run] play .../trace_xxx.mp3
+```
+
+### 9.3 正式连接 OBS 播放
+
+```bash
+OBS_PASSWORD="你的OBS WebSocket密码" ./scripts/run_obs_audio.sh
+```
+
+常用环境变量：
+
+- `OBS_AUDIO_INPUT_NAME`：OBS 媒体源名称，默认 `岗位语音`。
+- `OBS_AUDIO_EVENTS_FILE`：固定监听某个 events JSONL。
+- `OBS_AUDIO_EVENTS_GLOB`：自动选择最新 events JSONL，默认 `链路监控/events/events_*.jsonl`。
+- `OBS_AUDIO_PATH_MODE`：路径转换方式，默认 `auto`。
+
+WSL 控制 Windows OBS 时建议：
+
+```bash
+AUDIO_DIR=/mnt/c/Users/你的Windows用户名/auto-live-room-audio
+OBS_HOST=Windows宿主机IP
+OBS_AUDIO_PATH_MODE=wsl-to-windows
+```
+
+## 10. 常见问题
 
 ### 连接 OBS 超时
 
@@ -312,7 +379,7 @@ Songti SC / 宋体-简
 44：更宽，换行更少
 ```
 
-## 10. 停止脚本
+## 11. 停止脚本
 
 在运行脚本的终端中按：
 

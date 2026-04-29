@@ -20,7 +20,7 @@
 小程序API提取岗位信息/            调用 aibz 岗位搜索接口
 语音生成/                         生成解说文案和 TTS 音频
 链路监控/                         编排器、事件监控、trace 统计
-Obs_auto/                         OBS 文本源更新相关工具
+Obs_auto/                         OBS 文本源更新、TTS 音频播放相关工具
 scripts/                          初始化、启动、停止、日志脚本
 ```
 
@@ -102,6 +102,14 @@ DOUBAO_TTS_API_KEY=你的豆包TTSKey
 ./scripts/run_obs_text.sh
 ```
 
+单独启动 OBS 音频播放旁路：
+
+```bash
+./scripts/run_obs_audio.sh
+```
+
+它会监听 `链路监控/events/events_*.jsonl` 里的 `audio_path`，把最新 TTS mp3 推给 OBS 媒体源播放。OBS 中需要提前创建一个媒体源，名称默认是 `岗位语音`。
+
 离线验证编排器，不消耗 aibz / LLM / TTS：
 
 ```bash
@@ -148,6 +156,8 @@ Windows OBS Studio
 ```
 
 这样可以继续使用现有 `scripts/*.sh`。原生 Windows PowerShell 脚本尚未适配。
+
+如果要让 WSL 里生成的 TTS 音频自动在 Windows OBS 播放，建议把 `AUDIO_DIR` 设置到 `/mnt/c/...` 这类 Windows 可读目录，并设置 `OBS_AUDIO_PATH_MODE=wsl-to-windows`。
 
 详见 [Windows迁移教程.md](Windows迁移教程.md)。
 

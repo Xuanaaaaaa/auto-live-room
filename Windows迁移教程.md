@@ -182,7 +182,39 @@ OBS_DRY_RUN=1 OBS_ONCE=1 ./scripts/run_obs_text.sh
 
 如果只是验证生成结果，可以直接在 WSL 文件系统或 Windows 文件管理器里找到该文件播放。
 
-如果要进一步实现“生成后自动播放进 Windows OBS”，还需要单独设计 Windows 音频路由或 OBS 媒体源更新逻辑。WSL 里的 Linux 路径和 Windows 路径不同，这一段不能简单照搬 Mac 命令。
+如果要让生成后的 mp3 自动播放进 Windows OBS，使用独立旁路脚本：
+
+```bash
+./scripts/run_obs_audio.sh
+```
+
+OBS 中先创建一个媒体源，名称默认：
+
+```text
+岗位语音
+```
+
+WSL 里的 Linux 路径和 Windows OBS 可读路径不同。推荐把音频输出放到 Windows 可读目录，并开启路径转换：
+
+```bash
+AUDIO_DIR=/mnt/c/Users/你的Windows用户名/auto-live-room-audio
+OBS_AUDIO_PATH_MODE=wsl-to-windows
+OBS_AUDIO_INPUT_NAME=岗位语音
+```
+
+同时 `.env` 里的 `OBS_HOST` 要指向 Windows 宿主机 IP，`OBS_PORT` 和 `OBS_PASSWORD` 要与 OBS WebSocket 设置一致。
+
+先 dry-run：
+
+```bash
+OBS_AUDIO_DRY_RUN=1 OBS_AUDIO_ONCE=1 ./scripts/run_obs_audio.sh
+```
+
+确认能找到最新 `audio_path` 后，再关闭 `OBS_AUDIO_DRY_RUN` 正式连接 OBS：
+
+```bash
+./scripts/run_obs_audio.sh
+```
 
 ## 8. 常见问题
 
@@ -235,3 +267,4 @@ OBS_DRY_RUN=1 OBS_ONCE=1 ./scripts/run_obs_text.sh
 - `./scripts/status.sh` 显示三个进程 running
 - `./scripts/logs.sh monitor` 能看到事件流
 - 如需 OBS，已单独测试 `./scripts/run_obs_text.sh`
+- 如需 OBS 自动播放 TTS，已单独测试 `./scripts/run_obs_audio.sh`
