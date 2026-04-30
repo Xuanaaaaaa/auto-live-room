@@ -1,0 +1,463 @@
+{
+  "generated_at": "2026-04-30 14:46:31",
+  "input_path": "/Users/zhoukexuanmac/workspace/自动化直播间/语音生成/examples/sample_job_response.json",
+  "rounds": 3,
+  "versions": {
+    "baseline_commit": "229c5d604f4e3ddb028de04b4d22f8264b17eca5",
+    "current_commit": "8ad76190043b1dc5a5d5811b5d7ce9f3f09eed05"
+  },
+  "benchmarks": [
+    {
+      "label": "baseline_llm",
+      "narration_mode": "llm",
+      "runs": [
+        {
+          "label": "baseline_llm",
+          "narration_mode": "llm",
+          "run_index": 1,
+          "timing_ms": {
+            "load_input_ms": 0.1369589999999974,
+            "pick_first_job_ms": 0.0015830000000036648,
+            "normalize_job_ms": 0.020417000000001906,
+            "llm_narration_ms": 12837.987,
+            "tts_synthesis_ms": 2305.3483749999996,
+            "serialize_result_ms": 0.5643749999999272,
+            "total_ms": 15144.058708999999
+          },
+          "narration": {
+            "spoken_text": "接下来给大家播报最新岗位：北京丰台的民营公司谊安，校招全职后端开发工程师，要求本科学历，需具备JAVA开发相关经验，相关专业可报，招满即止。",
+            "duration_level": "short",
+            "should_play": true,
+            "title": "后端开发工程师",
+            "tags": [
+              "后端开发",
+              "校招",
+              "JAVA"
+            ],
+            "risk_tips": [],
+            "source": "doubao"
+          },
+          "audio_path": "/Users/zhoukexuanmac/workspace/自动化直播间/链路监控/audio/voice_benchmark/baseline_llm_run1_5764c3e9.mp3",
+          "audio_size_bytes": 121626
+        },
+        {
+          "label": "baseline_llm",
+          "narration_mode": "llm",
+          "run_index": 2,
+          "timing_ms": {
+            "load_input_ms": 0.39283399999840185,
+            "pick_first_job_ms": 0.0033750000002328306,
+            "normalize_job_ms": 0.022957999999562162,
+            "llm_narration_ms": 21840.988917,
+            "tts_synthesis_ms": 3666.660041000003,
+            "serialize_result_ms": 0.7543749999967986,
+            "total_ms": 25508.822499999995
+          },
+          "narration": {
+            "spoken_text": "今天给大家更新一个北京丰台的岗位，民营公司谊安招聘后端开发工程师，属于校招全职岗位，要求本科学历，相关专业背景，招满即止。",
+            "duration_level": "short",
+            "should_play": true,
+            "title": "后端开发工程师",
+            "tags": [
+              "后端开发",
+              "校招",
+              "JAVA"
+            ],
+            "risk_tips": [],
+            "source": "doubao"
+          },
+          "audio_path": "/Users/zhoukexuanmac/workspace/自动化直播间/链路监控/audio/voice_benchmark/baseline_llm_run2_9f50afe3.mp3",
+          "audio_size_bytes": 108717
+        },
+        {
+          "label": "baseline_llm",
+          "narration_mode": "llm",
+          "run_index": 3,
+          "timing_ms": {
+            "load_input_ms": 0.4288749999977881,
+            "pick_first_job_ms": 0.004541999995126389,
+            "normalize_job_ms": 0.04275000000052387,
+            "llm_narration_ms": 25721.767,
+            "tts_synthesis_ms": 2839.003125000003,
+            "serialize_result_ms": 0.6750000000029104,
+            "total_ms": 28561.921292
+          },
+          "narration": {
+            "spoken_text": "今天给大家播报北京丰台谊安民营公司的校招岗位：后端开发工程师，要求本科及以上学历，相关专业背景，全职岗位，招满即止。",
+            "duration_level": "short",
+            "should_play": true,
+            "title": "后端开发工程师",
+            "tags": [
+              "后端开发",
+              "校招",
+              "JAVA"
+            ],
+            "risk_tips": [
+              "该岗位要求能够承受较大工作压力"
+            ],
+            "source": "doubao"
+          },
+          "audio_path": "/Users/zhoukexuanmac/workspace/自动化直播间/链路监控/audio/voice_benchmark/baseline_llm_run3_4e3208a3.mp3",
+          "audio_size_bytes": 107949
+        }
+      ],
+      "summary": {
+        "load_input_ms": {
+          "n": 3,
+          "avg": 0.31955599999872913,
+          "p50": 0.39283399999840185,
+          "p90": 0.4288749999977881,
+          "max": 0.4288749999977881
+        },
+        "pick_first_job_ms": {
+          "n": 3,
+          "avg": 0.0031666666651209616,
+          "p50": 0.0033750000002328306,
+          "p90": 0.004541999995126389,
+          "max": 0.004541999995126389
+        },
+        "normalize_job_ms": {
+          "n": 3,
+          "avg": 0.028708333333362646,
+          "p50": 0.022957999999562162,
+          "p90": 0.04275000000052387,
+          "max": 0.04275000000052387
+        },
+        "llm_narration_ms": {
+          "n": 3,
+          "avg": 20133.580972333333,
+          "p50": 21840.988917,
+          "p90": 25721.767,
+          "max": 25721.767
+        },
+        "tts_synthesis_ms": {
+          "n": 3,
+          "avg": 2937.0038470000018,
+          "p50": 2839.003125000003,
+          "p90": 3666.660041000003,
+          "max": 3666.660041000003
+        },
+        "serialize_result_ms": {
+          "n": 3,
+          "avg": 0.6645833333332121,
+          "p50": 0.6750000000029104,
+          "p90": 0.7543749999967986,
+          "max": 0.7543749999967986
+        },
+        "total_ms": {
+          "n": 3,
+          "avg": 23071.600833666664,
+          "p50": 25508.822499999995,
+          "p90": 28561.921292,
+          "max": 28561.921292
+        }
+      }
+    },
+    {
+      "label": "current_llm",
+      "narration_mode": "llm",
+      "runs": [
+        {
+          "label": "current_llm",
+          "narration_mode": "llm",
+          "run_index": 1,
+          "timing_ms": {
+            "load_input_ms": 0.29308299999684095,
+            "pick_first_job_ms": 0.003499999991618097,
+            "normalize_job_ms": 0.03245800001604948,
+            "llm_narration_ms": 13447.279333999992,
+            "tts_synthesis_ms": 3235.1421249999985,
+            "serialize_result_ms": 0.7610830000048736,
+            "total_ms": 16683.511583
+          },
+          "narration": {
+            "spoken_text": "各位求职者，当前页面查到，北京丰台民营谊安正在校招全职后端开发工程师，要求本科及以上，相关专业背景，掌握Java等后端开发技术，招满即止。",
+            "duration_level": "short",
+            "should_play": true,
+            "title": "后端开发工程师",
+            "tags": [
+              "后端开发",
+              "JAVA",
+              "Spring"
+            ],
+            "risk_tips": [
+              "页面暂未展示薪资",
+              "经验要求以页面为准"
+            ],
+            "source": "doubao"
+          },
+          "audio_path": "/Users/zhoukexuanmac/workspace/自动化直播间/链路监控/audio/voice_benchmark/current_llm_run1_36926344.mp3",
+          "audio_size_bytes": 143130
+        },
+        {
+          "label": "current_llm",
+          "narration_mode": "llm",
+          "run_index": 2,
+          "timing_ms": {
+            "load_input_ms": 0.41195799999695737,
+            "pick_first_job_ms": 0.004916999998386018,
+            "normalize_job_ms": 0.043500000014319085,
+            "llm_narration_ms": 18796.199790999992,
+            "tts_synthesis_ms": 3000.3097089999937,
+            "serialize_result_ms": 0.6156659999978729,
+            "total_ms": 21797.585540999993
+          },
+          "narration": {
+            "spoken_text": "今天给大家播报一则开放岗位，北京丰台的民营公司谊安，正在校招全职后端开发工程师，要求本科学历、对应相关专业，掌握Java等后端开发技术，本次招聘招满即止。",
+            "duration_level": "short",
+            "should_play": true,
+            "title": "后端开发工程师",
+            "tags": [
+              "后端开发",
+              "JAVA",
+              "Spring"
+            ],
+            "risk_tips": [
+              "页面暂未展示薪资",
+              "经验要求以页面为准"
+            ],
+            "source": "doubao"
+          },
+          "audio_path": "/Users/zhoukexuanmac/workspace/自动化直播间/链路监控/audio/voice_benchmark/current_llm_run2_d896915e.mp3",
+          "audio_size_bytes": 146970
+        },
+        {
+          "label": "current_llm",
+          "narration_mode": "llm",
+          "run_index": 3,
+          "timing_ms": {
+            "load_input_ms": 0.27358300000196323,
+            "pick_first_job_ms": 0.0028750000055879354,
+            "normalize_job_ms": 0.02691699999559205,
+            "llm_narration_ms": 12646.975833000004,
+            "tts_synthesis_ms": 3016.9400840000017,
+            "serialize_result_ms": 0.5411659999954281,
+            "total_ms": 15664.760458000004
+          },
+          "narration": {
+            "spoken_text": "接下来给大家播报一条在招岗位：民营公司谊安，在北京丰台校招全职后端开发工程师，要求本科学历、相关专业背景，掌握Java等后端开发技术，招满即止，更多要求以页面展示为准。",
+            "duration_level": "short",
+            "should_play": true,
+            "title": "后端开发工程师",
+            "tags": [
+              "后端开发",
+              "JAVA",
+              "Spring"
+            ],
+            "risk_tips": [
+              "页面暂未展示薪资",
+              "经验要求以页面为准"
+            ],
+            "source": "doubao"
+          },
+          "audio_path": "/Users/zhoukexuanmac/workspace/自动化直播间/链路监控/audio/voice_benchmark/current_llm_run3_840da30b.mp3",
+          "audio_size_bytes": 161370
+        }
+      ],
+      "summary": {
+        "load_input_ms": {
+          "n": 3,
+          "avg": 0.3262079999985872,
+          "p50": 0.29308299999684095,
+          "p90": 0.41195799999695737,
+          "max": 0.41195799999695737
+        },
+        "pick_first_job_ms": {
+          "n": 3,
+          "avg": 0.0037639999985306836,
+          "p50": 0.003499999991618097,
+          "p90": 0.004916999998386018,
+          "max": 0.004916999998386018
+        },
+        "normalize_job_ms": {
+          "n": 3,
+          "avg": 0.03429166667532021,
+          "p50": 0.03245800001604948,
+          "p90": 0.043500000014319085,
+          "max": 0.043500000014319085
+        },
+        "llm_narration_ms": {
+          "n": 3,
+          "avg": 14963.484985999996,
+          "p50": 13447.279333999992,
+          "p90": 18796.199790999992,
+          "max": 18796.199790999992
+        },
+        "tts_synthesis_ms": {
+          "n": 3,
+          "avg": 3084.130639333331,
+          "p50": 3016.9400840000017,
+          "p90": 3235.1421249999985,
+          "max": 3235.1421249999985
+        },
+        "serialize_result_ms": {
+          "n": 3,
+          "avg": 0.6393049999993915,
+          "p50": 0.6156659999978729,
+          "p90": 0.7610830000048736,
+          "max": 0.7610830000048736
+        },
+        "total_ms": {
+          "n": 3,
+          "avg": 18048.619194,
+          "p50": 16683.511583,
+          "p90": 21797.585540999993,
+          "max": 21797.585540999993
+        }
+      }
+    },
+    {
+      "label": "current_template",
+      "narration_mode": "template",
+      "runs": [
+        {
+          "label": "current_template",
+          "narration_mode": "template",
+          "run_index": 1,
+          "timing_ms": {
+            "load_input_ms": 0.2526670000079321,
+            "pick_first_job_ms": 0.0028750000055879354,
+            "normalize_job_ms": 0.06649999998626299,
+            "llm_narration_ms": 0.11612500000046566,
+            "tts_synthesis_ms": 3159.813083000001,
+            "serialize_result_ms": 0.5803750000050059,
+            "total_ms": 3160.831625000006
+          },
+          "narration": {
+            "spoken_text": "现在看到的是北京丰台的后端开发工程师，公司是谊安。页面关键词包括后端开发、JAVA、Spring。要求本科，岗位类型是校招。企业信息显示为民营。适合正在看校招或实习的同学重点留意。",
+            "duration_level": "short",
+            "should_play": true,
+            "title": "后端开发工程师",
+            "tags": [
+              "后端开发",
+              "JAVA",
+              "Spring"
+            ],
+            "risk_tips": [
+              "页面暂未展示薪资",
+              "经验要求以页面为准"
+            ],
+            "source": "template"
+          },
+          "audio_path": "/Users/zhoukexuanmac/workspace/自动化直播间/链路监控/audio/voice_benchmark/current_template_run1_973ba29d.mp3",
+          "audio_size_bytes": 169242
+        },
+        {
+          "label": "current_template",
+          "narration_mode": "template",
+          "run_index": 2,
+          "timing_ms": {
+            "load_input_ms": 0.24079199999687262,
+            "pick_first_job_ms": 0.0024170000106096268,
+            "normalize_job_ms": 0.029458000004524365,
+            "llm_narration_ms": 0.10158299998147413,
+            "tts_synthesis_ms": 3179.3433340000047,
+            "serialize_result_ms": 0.4567910000187112,
+            "total_ms": 3180.174375000017
+          },
+          "narration": {
+            "spoken_text": "现在看到的是北京丰台的后端开发工程师，公司是谊安。页面关键词包括后端开发、JAVA、Spring。要求本科，岗位类型是校招。企业信息显示为民营。适合正在看校招或实习的同学重点留意。",
+            "duration_level": "short",
+            "should_play": true,
+            "title": "后端开发工程师",
+            "tags": [
+              "后端开发",
+              "JAVA",
+              "Spring"
+            ],
+            "risk_tips": [
+              "页面暂未展示薪资",
+              "经验要求以页面为准"
+            ],
+            "source": "template"
+          },
+          "audio_path": "/Users/zhoukexuanmac/workspace/自动化直播间/链路监控/audio/voice_benchmark/current_template_run2_4ed5ba40.mp3",
+          "audio_size_bytes": 168474
+        },
+        {
+          "label": "current_template",
+          "narration_mode": "template",
+          "run_index": 3,
+          "timing_ms": {
+            "load_input_ms": 0.31529200001386926,
+            "pick_first_job_ms": 0.003374999971129,
+            "normalize_job_ms": 0.028875000003608875,
+            "llm_narration_ms": 0.117500000007567,
+            "tts_synthesis_ms": 3444.515000000014,
+            "serialize_result_ms": 0.7141659999906551,
+            "total_ms": 3445.694208000001
+          },
+          "narration": {
+            "spoken_text": "现在看到的是北京丰台的后端开发工程师，公司是谊安。页面关键词包括后端开发、JAVA、Spring。要求本科，岗位类型是校招。企业信息显示为民营。适合正在看校招或实习的同学重点留意。",
+            "duration_level": "short",
+            "should_play": true,
+            "title": "后端开发工程师",
+            "tags": [
+              "后端开发",
+              "JAVA",
+              "Spring"
+            ],
+            "risk_tips": [
+              "页面暂未展示薪资",
+              "经验要求以页面为准"
+            ],
+            "source": "template"
+          },
+          "audio_path": "/Users/zhoukexuanmac/workspace/自动化直播间/链路监控/audio/voice_benchmark/current_template_run3_959419dd.mp3",
+          "audio_size_bytes": 175962
+        }
+      ],
+      "summary": {
+        "load_input_ms": {
+          "n": 3,
+          "avg": 0.2695836666728913,
+          "p50": 0.2526670000079321,
+          "p90": 0.31529200001386926,
+          "max": 0.31529200001386926
+        },
+        "pick_first_job_ms": {
+          "n": 3,
+          "avg": 0.002888999995775521,
+          "p50": 0.0028750000055879354,
+          "p90": 0.003374999971129,
+          "max": 0.003374999971129
+        },
+        "normalize_job_ms": {
+          "n": 3,
+          "avg": 0.04161099999813208,
+          "p50": 0.029458000004524365,
+          "p90": 0.06649999998626299,
+          "max": 0.06649999998626299
+        },
+        "llm_narration_ms": {
+          "n": 3,
+          "avg": 0.11173599999650226,
+          "p50": 0.11612500000046566,
+          "p90": 0.117500000007567,
+          "max": 0.117500000007567
+        },
+        "tts_synthesis_ms": {
+          "n": 3,
+          "avg": 3261.2238056666733,
+          "p50": 3179.3433340000047,
+          "p90": 3444.515000000014,
+          "max": 3444.515000000014
+        },
+        "serialize_result_ms": {
+          "n": 3,
+          "avg": 0.5837773333381241,
+          "p50": 0.5803750000050059,
+          "p90": 0.7141659999906551,
+          "max": 0.7141659999906551
+        },
+        "total_ms": {
+          "n": 3,
+          "avg": 3262.2334026666745,
+          "p50": 3180.174375000017,
+          "p90": 3445.694208000001,
+          "max": 3445.694208000001
+        }
+      }
+    }
+  ]
+}

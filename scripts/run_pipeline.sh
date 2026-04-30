@@ -31,6 +31,8 @@ fi
 
 cmd=("$PY" "$MAIN" "--danmu-jsonl" "$danmu_jsonl")
 
+cmd+=("--narration-mode" "${PIPELINE_NARRATION_MODE:-llm}")
+
 if flag_enabled "${PIPELINE_DRY_RUN:-0}"; then
   cmd+=("--dry-run")
 else

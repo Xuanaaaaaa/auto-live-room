@@ -33,12 +33,13 @@ DEFAULT_LLM_BASE_URL = "https://ark.cn-beijing.volces.com/api/v3"
 DEFAULT_TTS_HTTP_URL = "https://openspeech.bytedance.com/api/v3/tts/unidirectional"
 LOCAL_TEST_DOUBAO_API_KEY = ""
 LOCAL_TEST_TTS_API_KEY = ""
-DEFAULT_LLM_MODEL = "doubao-seed-2-0-lite-260215"
+DEFAULT_LLM_MODEL = "doubao-1-5-lite-32k-250115"
 DEFAULT_TTS_APP_ID = "1830992029"
 DEFAULT_TTS_RESOURCE_ID = "volc.service_type.10029"
 DEFAULT_TTS_VOICE = "zh_female_wanqudashu_moon_bigtts"
 DEFAULT_TTS_FORMAT = "mp3"
 DEFAULT_SAMPLE_RATE = 24000
+TEMPLATE_TARGET_MAX_CHARS = 115
 
 
 class WorkflowError(RuntimeError):
@@ -210,17 +211,7 @@ def build_llm_messages(job: JobPayload) -> list[dict[str, str]]:
 3. 控制在 60 到 120 个中文字符之间，适合 8 到 15 秒播完。
 4. 不要承诺岗位真实性、录用概率、一定高薪、一定靠谱。
 5. 如果字段缺失，用“页面暂未展示”这类保守表达，不要猜。
-6. 必须只输出 JSON，不要输出 Markdown。
-
-JSON 输出格式：
-{
-  "spoken_text": "直播间要播报的中文口播文案",
-  "duration_level": "short",
-  "should_play": true,
-  "title": "岗位标题",
-  "tags": ["最多3个简短标签"],
-  "risk_tips": ["最多2个保守提醒，没有则为空数组"]
-}
+6. 只输出口播文案本身，不要输出 JSON、Markdown、标题、标签、解释或前后缀。
 """.strip()
     user_prompt = "请根据这个岗位 JSON 生成直播查岗口播：\n" + json.dumps(
         compact_job, ensure_ascii=False
@@ -233,29 +224,243 @@ JSON 输出格式：
 
 def generate_template_script(job: JobPayload) -> NarrationResult:
     """Local fallback for dry runs or provider outages."""
-    recommended = _strip_sentence_end(job.recommended_message)
-    pieces = [
-        f"现在打开的是{job.city}的{job.name}",
-        f"公司是{job.company_name}",
+    text = generate_template_spoken_text(job)
+    return build_narration_result(job, text, source="template")
+
+
+def generate_template_spoken_text(job: JobPayload) -> str:
+    """Render a 10-15 second narration from deterministic fact fragments."""
+    opening = build_template_opening(job)
+    candidates = [
+        build_recommended_sentence(job),
+        build_keyword_sentence(job),
+        build_requirement_sentence(job),
+        build_salary_sentence(job),
+        build_company_sentence(job),
     ]
-    if job.company_type_key or job.company_title_key:
-        company_bits = "、".join(
-            bit for bit in [job.company_title_key, job.company_type_key] if bit
-        )
-        pieces.append(f"企业信息显示为{company_bits}")
-    if recommended:
-        pieces.append(f"推荐理由是{recommended}")
-    pieces.append("大家可以结合自己的经验和求职方向重点看一下")
-    text = "，".join(pieces) + "。"
+    closing = build_closing_sentence(job, has_details=any(candidates))
+    return compose_template_text(opening, candidates, closing)
+
+
+def compose_template_text(
+    opening: str,
+    candidates: Iterable[Optional[str]],
+    closing: str,
+    max_chars: int = TEMPLATE_TARGET_MAX_CHARS,
+) -> str:
+    parts = [opening]
+    for sentence in candidates:
+        if not sentence:
+            continue
+        candidate = "".join(parts + [sentence, closing])
+        if len(candidate) <= max_chars:
+            parts.append(sentence)
+    parts.append(closing)
+    return "".join(parts)
+
+
+def build_template_opening(job: JobPayload) -> str:
+    name = job.name
+    company = job.company_name
+    if is_displayed(job.city):
+        return f"现在看到的是{job.city}的{name}，公司是{company}。"
+    return f"现在看到的是{name}，公司是{company}。"
+
+
+def build_recommended_sentence(job: JobPayload) -> Optional[str]:
+    recommended = _strip_sentence_end(job.recommended_message)
+    if not recommended:
+        return None
+    return f"推荐理由是{limit_fragment(recommended, 32)}。"
+
+
+def build_keyword_sentence(job: JobPayload) -> Optional[str]:
+    keywords = derive_template_keywords(job)
+    if not keywords:
+        return None
+    return f"页面关键词包括{'、'.join(keywords)}。"
+
+
+def derive_template_keywords(job: JobPayload, max_keywords: int = 3) -> list[str]:
+    keywords: list[str] = []
+
+    def add(value: Any) -> None:
+        text = _clean_text(value).strip("\"'“”‘’")
+        if text and text not in keywords:
+            keywords.append(text)
+
+    for key in ("tags", "skill_tags"):
+        for item in iter_tag_values(job.extra_fields.get(key)):
+            add(item)
+
+    name = job.name
+    if "实习" in name:
+        add("实习")
+    if "校招" in name or "秋招" in name or "春招" in name:
+        add("校招")
+    if "管培" in name:
+        add("管培生")
+    return keywords[:max_keywords]
+
+
+def build_requirement_sentence(job: JobPayload) -> Optional[str]:
+    bits = []
+    education = first_extra_text(job, "education", "degree")
+    experience = first_extra_text(job, "experience", "work_experience")
+    job_type = first_extra_text(job, "job_type", "position")
+    if education:
+        bits.append(f"要求{education}")
+    if experience:
+        bits.append(f"经验要求{experience}")
+    if job_type:
+        bits.append(f"岗位类型是{job_type}")
+    if not bits:
+        return None
+    return "，".join(bits[:3]) + "。"
+
+
+def build_salary_sentence(job: JobPayload) -> Optional[str]:
+    salary = first_extra_text(job, "salary", "salary_desc", "salary_range")
+    if not salary:
+        return None
+    return f"薪资信息为{limit_fragment(salary, 22)}。"
+
+
+def build_company_sentence(job: JobPayload) -> Optional[str]:
+    bits = [bit for bit in [job.company_title_key, job.company_type_key] if bit]
+    if not bits:
+        return None
+    return f"企业信息显示为{'、'.join(bits[:2])}。"
+
+
+def build_closing_sentence(job: JobPayload, has_details: bool) -> str:
+    job_type = first_extra_text(job, "job_type", "position")
+    if any(word in f"{job.name}{job_type}" for word in ("实习", "校招", "秋招", "春招")):
+        return "适合正在看校招或实习的同学重点留意。"
+    if has_details:
+        return "方向匹配的话，可以重点看一下详情。"
+    return "页面信息有限，建议重点核对岗位职责和投递入口。"
+
+
+def first_extra_text(job: JobPayload, *keys: str) -> str:
+    for key in keys:
+        value = job.extra_fields.get(key)
+        if isinstance(value, list):
+            joined = "、".join(_clean_text(item) for item in value if _clean_text(item))
+            if joined:
+                return joined
+        else:
+            text = _clean_text(value)
+            if text:
+                return text
+    return ""
+
+
+def is_displayed(value: str) -> bool:
+    return bool(value) and "暂未展示" not in value
+
+
+def limit_fragment(text: str, max_chars: int) -> str:
+    text = _clean_text(text)
+    if len(text) <= max_chars:
+        return text
+    return text[:max_chars].rstrip("，、；;。.!！?？") + "..."
+
+
+def build_narration_result(job: JobPayload, spoken_text: str, source: str) -> NarrationResult:
+    """Wrap generated speech text with deterministic metadata."""
+    spoken_text = limit_spoken_text(clean_llm_spoken_text(spoken_text))
     return NarrationResult(
-        spoken_text=limit_spoken_text(text),
+        spoken_text=spoken_text,
         duration_level="short",
-        should_play=True,
+        should_play=bool(spoken_text),
         title=job.name,
-        tags=[],
-        risk_tips=[],
-        source="template",
+        tags=derive_job_tags(job),
+        risk_tips=derive_risk_tips(job),
+        source=source,
     )
+
+
+def derive_job_tags(job: JobPayload, max_tags: int = 3) -> list[str]:
+    """Derive short display tags without asking the model."""
+    tags: list[str] = []
+
+    def add(value: Any) -> None:
+        text = _clean_text(value).strip("\"'“”‘’")
+        if text and text not in tags:
+            tags.append(text)
+
+    for key in ("tags", "skill_tags", "job_type", "experience", "work_experience", "education", "degree"):
+        for item in iter_tag_values(job.extra_fields.get(key)):
+            add(item)
+
+    name = job.name
+    if "实习" in name:
+        add("实习")
+    if "校招" in name or "秋招" in name or "春招" in name:
+        add("校招")
+    if "管培" in name:
+        add("管培生")
+    if job.company_title_key:
+        add(job.company_title_key)
+    if job.company_type_key:
+        add(job.company_type_key)
+
+    return tags[:max_tags]
+
+
+def iter_tag_values(value: Any) -> Iterable[Any]:
+    if isinstance(value, list):
+        return value
+    if not isinstance(value, str):
+        return []
+
+    text = value.strip()
+    if text.startswith("["):
+        try:
+            parsed = json.loads(text)
+        except json.JSONDecodeError:
+            parsed = None
+        if isinstance(parsed, list):
+            return parsed
+
+    return [item for item in text.replace("，", ",").replace("、", ",").split(",") if item.strip()]
+
+
+def derive_risk_tips(job: JobPayload, max_tips: int = 2) -> list[str]:
+    """Generate conservative non-spoken tips for trace/debug consumers."""
+    tips: list[str] = []
+
+    def add(value: str) -> None:
+        if value and value not in tips:
+            tips.append(value)
+
+    if not any(key in job.extra_fields for key in ("salary", "salary_desc", "salary_range")):
+        add("页面暂未展示薪资")
+    if not any(key in job.extra_fields for key in ("experience", "work_experience")):
+        add("经验要求以页面为准")
+    if not any(key in job.extra_fields for key in ("education", "degree")):
+        add("学历要求以页面为准")
+    if "招满即止" in job.end_time:
+        add("岗位可能随时下架")
+
+    return tips[:max_tips]
+
+
+def clean_llm_spoken_text(text: str) -> str:
+    """Normalize common wrappers when a model is asked for plain speech text."""
+    text = _clean_text(text)
+    if text.startswith("```"):
+        text = text.strip("`").strip()
+        for prefix in ("text", "plaintext", "markdown", "中文"):
+            if text.lower().startswith(prefix):
+                text = text[len(prefix):].strip()
+                break
+    for prefix in ("口播文案：", "口播文案:", "文案：", "文案:", "spoken_text：", "spoken_text:"):
+        if text.startswith(prefix):
+            text = text[len(prefix):].strip()
+            break
+    return text.strip().strip("\"'“”‘’")
 
 
 def generate_script_with_doubao(job: JobPayload, config: DoubaoLLMConfig) -> NarrationResult:
@@ -271,27 +476,12 @@ def generate_script_with_doubao(job: JobPayload, config: DoubaoLLMConfig) -> Nar
         messages=build_llm_messages(job),
         temperature=config.temperature,
         max_tokens=config.max_tokens,
-        response_format={"type": "json_object"},
     )
     content = completion.choices[0].message.content or ""
-    try:
-        payload = json.loads(content)
-    except json.JSONDecodeError as exc:
-        raise WorkflowError(f"Doubao LLM returned non-JSON content: {content}") from exc
-
-    spoken_text = limit_spoken_text(_clean_text(payload.get("spoken_text")))
-    if not spoken_text:
+    narration = build_narration_result(job, content, source="doubao")
+    if not narration.spoken_text:
         raise WorkflowError("Doubao LLM returned empty spoken_text.")
-
-    return NarrationResult(
-        spoken_text=spoken_text,
-        duration_level=_clean_text(payload.get("duration_level"), "short"),
-        should_play=bool(payload.get("should_play", True)),
-        title=_clean_text(payload.get("title"), job.name),
-        tags=payload.get("tags") if isinstance(payload.get("tags"), list) else [],
-        risk_tips=payload.get("risk_tips") if isinstance(payload.get("risk_tips"), list) else [],
-        source="doubao",
-    )
+    return narration
 
 
 def limit_spoken_text(text: str, max_chars: int = 140) -> str:

@@ -116,6 +116,39 @@ prompt_live_id() {
   export LIVE_ID="$current"
 }
 
+prompt_narration_mode() {
+  local input current
+  current="${PIPELINE_NARRATION_MODE:-llm}"
+
+  case "$current" in
+    llm|LLM|1) current="llm" ;;
+    template|Template|TEMPLATE|2|模板|模版) current="template" ;;
+    *)
+      echo "WARN: invalid PIPELINE_NARRATION_MODE=$current, fallback to llm." >&2
+      current="llm"
+      ;;
+  esac
+
+  if [[ -t 0 ]]; then
+    read -r -p "Narration mode: llm/template, 1=llm, 2=template [$current]: " input
+    input="$(trim_value "$input")"
+    if [[ -n "$input" ]]; then
+      current="$input"
+    fi
+  fi
+
+  case "$current" in
+    llm|LLM|1) current="llm" ;;
+    template|Template|TEMPLATE|2|模板|模版) current="template" ;;
+    *)
+      echo "ERROR: Narration mode must be llm/template, 1/2, or 模板." >&2
+      exit 1
+      ;;
+  esac
+
+  export PIPELINE_NARRATION_MODE="$current"
+}
+
 ensure_runtime_dirs() {
   mkdir -p "${LOG_DIR:-$ROOT_DIR/logs}" "${RUN_DIR:-$ROOT_DIR/.run}"
 }

@@ -49,7 +49,7 @@ python3 -m venv .venv
 默认非敏感配置：
 
 ```text
-LLM 模型：doubao-seed-2-0-lite-260215
+LLM 模型：doubao-1-5-lite-32k-250115
 TTS APP ID：1830992029
 TTS Resource ID：volc.service_type.10029
 TTS Voice：zh_female_wanqudashu_moon_bigtts
@@ -62,7 +62,7 @@ TTS HTTP URL：https://openspeech.bytedance.com/api/v3/tts/unidirectional
 
 ```bash
 export DOUBAO_LLM_API_KEY="你的火山方舟 API Key"
-export DOUBAO_LLM_MODEL="doubao-seed-2-0-lite-260215"
+export DOUBAO_LLM_MODEL="doubao-1-5-lite-32k-250115"
 export DOUBAO_LLM_BASE_URL="https://ark.cn-beijing.volces.com/api/v3"
 ```
 
