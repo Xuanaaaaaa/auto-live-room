@@ -21,6 +21,11 @@ build/
 .hbuilderx/
 project.private.config.json
 
+# External automation project. Clone separately when needed.
+automation/
+automation-main.zip
+docs/automation-main.zip
+
 # macOS / editor / local agents
 .DS_Store
 .idea/
