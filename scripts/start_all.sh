@@ -19,6 +19,11 @@ require_live_id() {
   echo "[config] LIVE_ID=$LIVE_ID"
 }
 
+require_narration_mode() {
+  prompt_narration_mode
+  echo "[config] PIPELINE_NARRATION_MODE=$PIPELINE_NARRATION_MODE"
+}
+
 service_pid_file() {
   echo "$RUN_DIR/$1.pid"
 }
@@ -66,6 +71,7 @@ PY
 }
 
 require_live_id
+require_narration_mode
 
 for service in danmu pipeline monitor; do
   ensure_not_running "$service"
@@ -93,6 +99,7 @@ start_service pipeline env \
   DANMU_JSONL="$danmu_jsonl" \
   EVENTS_OUT="$events_out" \
   TRACES_OUT="$traces_out" \
+  PIPELINE_NARRATION_MODE="$PIPELINE_NARRATION_MODE" \
   "$SCRIPT_DIR/run_pipeline.sh"
 
 echo "[wait] events file: $events_out"

@@ -145,6 +145,7 @@ class OrchestratorConfig:
     tts_config: Optional[DoubaoTTSConfig]
     audio_dir: Path
     enable_tts: bool = True
+    narration_mode: str = "llm"
     dry_run: bool = False
     page_size: int = 10
 
@@ -291,7 +292,7 @@ class Orchestrator:
         t0 = _now_ms()
         try:
             job = normalize_job(first_job)
-            if self.cfg.dry_run or self.cfg.llm_config is None:
+            if self.cfg.dry_run or self.cfg.narration_mode == "template" or self.cfg.llm_config is None:
                 narration = generate_template_script(job)
             else:
                 narration = generate_script_with_doubao(job, self.cfg.llm_config)
@@ -472,7 +473,7 @@ def _build_configs(args: argparse.Namespace):
         tts_resource_id=args.tts_resource_id, tts_voice=args.tts_voice,
         tts_format=args.tts_format, tts_sample_rate=args.tts_sample_rate,
     )
-    llm = llm_config_from_env(fake)
+    llm = None if args.narration_mode == "template" else llm_config_from_env(fake)
     tts = None if args.no_tts else tts_config_from_env(fake)
     return llm, tts
 
@@ -486,6 +487,12 @@ def main(argv: Optional[list[str]] = None) -> int:
     p.add_argument("--audio-dir", default="", help="TTS 音频输出目录")
     p.add_argument("--from-start", action="store_true", help="从弹幕 jsonl 开头消费")
     p.add_argument("--no-tts", action="store_true", help="跳过 TTS 合成")
+    p.add_argument(
+        "--narration-mode",
+        choices=("llm", "template"),
+        default="llm",
+        help="解说文案生成方式: llm=豆包LLM, template=本地模板",
+    )
     p.add_argument("--dry-run", action="store_true",
                    help="不连任何真实 API, 用模板文案 + 跳过 TTS, 验证链路结构")
     p.add_argument("--page-size", type=int, default=10, help="search_jobs page_size")
@@ -526,6 +533,7 @@ def main(argv: Optional[list[str]] = None) -> int:
         tts_config=tts_config,
         audio_dir=audio_dir,
         enable_tts=enable_tts,
+        narration_mode=args.narration_mode,
         dry_run=args.dry_run,
         page_size=args.page_size,
     )
@@ -537,6 +545,7 @@ def main(argv: Optional[list[str]] = None) -> int:
     print(f"[init] events:      {events_path}")
     print(f"[init] traces:      {traces_path}")
     print(f"[init] audio dir:   {audio_dir} (tts={'on' if enable_tts else 'off'})")
+    print(f"[init] narration:   {args.narration_mode}")
     print(f"[init] dry_run:     {args.dry_run}")
 
     try:
