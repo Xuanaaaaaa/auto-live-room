@@ -210,17 +210,7 @@ def build_llm_messages(job: JobPayload) -> list[dict[str, str]]:
 3. 控制在 60 到 120 个中文字符之间，适合 8 到 15 秒播完。
 4. 不要承诺岗位真实性、录用概率、一定高薪、一定靠谱。
 5. 如果字段缺失，用“页面暂未展示”这类保守表达，不要猜。
-6. 必须只输出 JSON，不要输出 Markdown。
-
-JSON 输出格式：
-{
-  "spoken_text": "直播间要播报的中文口播文案",
-  "duration_level": "short",
-  "should_play": true,
-  "title": "岗位标题",
-  "tags": ["最多3个简短标签"],
-  "risk_tips": ["最多2个保守提醒，没有则为空数组"]
-}
+6. 只输出口播文案本身，不要输出 JSON、Markdown、标题、标签、解释或前后缀。
 """.strip()
     user_prompt = "请根据这个岗位 JSON 生成直播查岗口播：\n" + json.dumps(
         compact_job, ensure_ascii=False
@@ -247,15 +237,103 @@ def generate_template_script(job: JobPayload) -> NarrationResult:
         pieces.append(f"推荐理由是{recommended}")
     pieces.append("大家可以结合自己的经验和求职方向重点看一下")
     text = "，".join(pieces) + "。"
+    return build_narration_result(job, text, source="template")
+
+
+def build_narration_result(job: JobPayload, spoken_text: str, source: str) -> NarrationResult:
+    """Wrap generated speech text with deterministic metadata."""
+    spoken_text = limit_spoken_text(clean_llm_spoken_text(spoken_text))
     return NarrationResult(
-        spoken_text=limit_spoken_text(text),
+        spoken_text=spoken_text,
         duration_level="short",
-        should_play=True,
+        should_play=bool(spoken_text),
         title=job.name,
-        tags=[],
-        risk_tips=[],
-        source="template",
+        tags=derive_job_tags(job),
+        risk_tips=derive_risk_tips(job),
+        source=source,
     )
+
+
+def derive_job_tags(job: JobPayload, max_tags: int = 3) -> list[str]:
+    """Derive short display tags without asking the model."""
+    tags: list[str] = []
+
+    def add(value: Any) -> None:
+        text = _clean_text(value).strip("\"'“”‘’")
+        if text and text not in tags:
+            tags.append(text)
+
+    for key in ("tags", "skill_tags", "job_type", "experience", "work_experience", "education", "degree"):
+        for item in iter_tag_values(job.extra_fields.get(key)):
+            add(item)
+
+    name = job.name
+    if "实习" in name:
+        add("实习")
+    if "校招" in name or "秋招" in name or "春招" in name:
+        add("校招")
+    if "管培" in name:
+        add("管培生")
+    if job.company_title_key:
+        add(job.company_title_key)
+    if job.company_type_key:
+        add(job.company_type_key)
+
+    return tags[:max_tags]
+
+
+def iter_tag_values(value: Any) -> Iterable[Any]:
+    if isinstance(value, list):
+        return value
+    if not isinstance(value, str):
+        return []
+
+    text = value.strip()
+    if text.startswith("["):
+        try:
+            parsed = json.loads(text)
+        except json.JSONDecodeError:
+            parsed = None
+        if isinstance(parsed, list):
+            return parsed
+
+    return [item for item in text.replace("，", ",").replace("、", ",").split(",") if item.strip()]
+
+
+def derive_risk_tips(job: JobPayload, max_tips: int = 2) -> list[str]:
+    """Generate conservative non-spoken tips for trace/debug consumers."""
+    tips: list[str] = []
+
+    def add(value: str) -> None:
+        if value and value not in tips:
+            tips.append(value)
+
+    if not any(key in job.extra_fields for key in ("salary", "salary_desc", "salary_range")):
+        add("页面暂未展示薪资")
+    if not any(key in job.extra_fields for key in ("experience", "work_experience")):
+        add("经验要求以页面为准")
+    if not any(key in job.extra_fields for key in ("education", "degree")):
+        add("学历要求以页面为准")
+    if "招满即止" in job.end_time:
+        add("岗位可能随时下架")
+
+    return tips[:max_tips]
+
+
+def clean_llm_spoken_text(text: str) -> str:
+    """Normalize common wrappers when a model is asked for plain speech text."""
+    text = _clean_text(text)
+    if text.startswith("```"):
+        text = text.strip("`").strip()
+        for prefix in ("text", "plaintext", "markdown", "中文"):
+            if text.lower().startswith(prefix):
+                text = text[len(prefix):].strip()
+                break
+    for prefix in ("口播文案：", "口播文案:", "文案：", "文案:", "spoken_text：", "spoken_text:"):
+        if text.startswith(prefix):
+            text = text[len(prefix):].strip()
+            break
+    return text.strip().strip("\"'“”‘’")
 
 
 def generate_script_with_doubao(job: JobPayload, config: DoubaoLLMConfig) -> NarrationResult:
@@ -271,27 +349,12 @@ def generate_script_with_doubao(job: JobPayload, config: DoubaoLLMConfig) -> Nar
         messages=build_llm_messages(job),
         temperature=config.temperature,
         max_tokens=config.max_tokens,
-        response_format={"type": "json_object"},
     )
     content = completion.choices[0].message.content or ""
-    try:
-        payload = json.loads(content)
-    except json.JSONDecodeError as exc:
-        raise WorkflowError(f"Doubao LLM returned non-JSON content: {content}") from exc
-
-    spoken_text = limit_spoken_text(_clean_text(payload.get("spoken_text")))
-    if not spoken_text:
+    narration = build_narration_result(job, content, source="doubao")
+    if not narration.spoken_text:
         raise WorkflowError("Doubao LLM returned empty spoken_text.")
-
-    return NarrationResult(
-        spoken_text=spoken_text,
-        duration_level=_clean_text(payload.get("duration_level"), "short"),
-        should_play=bool(payload.get("should_play", True)),
-        title=_clean_text(payload.get("title"), job.name),
-        tags=payload.get("tags") if isinstance(payload.get("tags"), list) else [],
-        risk_tips=payload.get("risk_tips") if isinstance(payload.get("risk_tips"), list) else [],
-        source="doubao",
-    )
+    return narration
 
 
 def limit_spoken_text(text: str, max_chars: int = 140) -> str:
