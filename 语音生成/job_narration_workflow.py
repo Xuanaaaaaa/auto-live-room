@@ -39,6 +39,7 @@ DEFAULT_TTS_RESOURCE_ID = "volc.service_type.10029"
 DEFAULT_TTS_VOICE = "zh_female_wanqudashu_moon_bigtts"
 DEFAULT_TTS_FORMAT = "mp3"
 DEFAULT_SAMPLE_RATE = 24000
+TEMPLATE_TARGET_MAX_CHARS = 115
 
 
 class WorkflowError(RuntimeError):
@@ -223,21 +224,147 @@ def build_llm_messages(job: JobPayload) -> list[dict[str, str]]:
 
 def generate_template_script(job: JobPayload) -> NarrationResult:
     """Local fallback for dry runs or provider outages."""
-    recommended = _strip_sentence_end(job.recommended_message)
-    pieces = [
-        f"现在打开的是{job.city}的{job.name}",
-        f"公司是{job.company_name}",
-    ]
-    if job.company_type_key or job.company_title_key:
-        company_bits = "、".join(
-            bit for bit in [job.company_title_key, job.company_type_key] if bit
-        )
-        pieces.append(f"企业信息显示为{company_bits}")
-    if recommended:
-        pieces.append(f"推荐理由是{recommended}")
-    pieces.append("大家可以结合自己的经验和求职方向重点看一下")
-    text = "，".join(pieces) + "。"
+    text = generate_template_spoken_text(job)
     return build_narration_result(job, text, source="template")
+
+
+def generate_template_spoken_text(job: JobPayload) -> str:
+    """Render a 10-15 second narration from deterministic fact fragments."""
+    opening = build_template_opening(job)
+    candidates = [
+        build_recommended_sentence(job),
+        build_keyword_sentence(job),
+        build_requirement_sentence(job),
+        build_salary_sentence(job),
+        build_company_sentence(job),
+    ]
+    closing = build_closing_sentence(job, has_details=any(candidates))
+    return compose_template_text(opening, candidates, closing)
+
+
+def compose_template_text(
+    opening: str,
+    candidates: Iterable[Optional[str]],
+    closing: str,
+    max_chars: int = TEMPLATE_TARGET_MAX_CHARS,
+) -> str:
+    parts = [opening]
+    for sentence in candidates:
+        if not sentence:
+            continue
+        candidate = "".join(parts + [sentence, closing])
+        if len(candidate) <= max_chars:
+            parts.append(sentence)
+    parts.append(closing)
+    return "".join(parts)
+
+
+def build_template_opening(job: JobPayload) -> str:
+    name = job.name
+    company = job.company_name
+    if is_displayed(job.city):
+        return f"现在看到的是{job.city}的{name}，公司是{company}。"
+    return f"现在看到的是{name}，公司是{company}。"
+
+
+def build_recommended_sentence(job: JobPayload) -> Optional[str]:
+    recommended = _strip_sentence_end(job.recommended_message)
+    if not recommended:
+        return None
+    return f"推荐理由是{limit_fragment(recommended, 32)}。"
+
+
+def build_keyword_sentence(job: JobPayload) -> Optional[str]:
+    keywords = derive_template_keywords(job)
+    if not keywords:
+        return None
+    return f"页面关键词包括{'、'.join(keywords)}。"
+
+
+def derive_template_keywords(job: JobPayload, max_keywords: int = 3) -> list[str]:
+    keywords: list[str] = []
+
+    def add(value: Any) -> None:
+        text = _clean_text(value).strip("\"'“”‘’")
+        if text and text not in keywords:
+            keywords.append(text)
+
+    for key in ("tags", "skill_tags"):
+        for item in iter_tag_values(job.extra_fields.get(key)):
+            add(item)
+
+    name = job.name
+    if "实习" in name:
+        add("实习")
+    if "校招" in name or "秋招" in name or "春招" in name:
+        add("校招")
+    if "管培" in name:
+        add("管培生")
+    return keywords[:max_keywords]
+
+
+def build_requirement_sentence(job: JobPayload) -> Optional[str]:
+    bits = []
+    education = first_extra_text(job, "education", "degree")
+    experience = first_extra_text(job, "experience", "work_experience")
+    job_type = first_extra_text(job, "job_type", "position")
+    if education:
+        bits.append(f"要求{education}")
+    if experience:
+        bits.append(f"经验要求{experience}")
+    if job_type:
+        bits.append(f"岗位类型是{job_type}")
+    if not bits:
+        return None
+    return "，".join(bits[:3]) + "。"
+
+
+def build_salary_sentence(job: JobPayload) -> Optional[str]:
+    salary = first_extra_text(job, "salary", "salary_desc", "salary_range")
+    if not salary:
+        return None
+    return f"薪资信息为{limit_fragment(salary, 22)}。"
+
+
+def build_company_sentence(job: JobPayload) -> Optional[str]:
+    bits = [bit for bit in [job.company_title_key, job.company_type_key] if bit]
+    if not bits:
+        return None
+    return f"企业信息显示为{'、'.join(bits[:2])}。"
+
+
+def build_closing_sentence(job: JobPayload, has_details: bool) -> str:
+    job_type = first_extra_text(job, "job_type", "position")
+    if any(word in f"{job.name}{job_type}" for word in ("实习", "校招", "秋招", "春招")):
+        return "适合正在看校招或实习的同学重点留意。"
+    if has_details:
+        return "方向匹配的话，可以重点看一下详情。"
+    return "页面信息有限，建议重点核对岗位职责和投递入口。"
+
+
+def first_extra_text(job: JobPayload, *keys: str) -> str:
+    for key in keys:
+        value = job.extra_fields.get(key)
+        if isinstance(value, list):
+            joined = "、".join(_clean_text(item) for item in value if _clean_text(item))
+            if joined:
+                return joined
+        else:
+            text = _clean_text(value)
+            if text:
+                return text
+    return ""
+
+
+def is_displayed(value: str) -> bool:
+    return bool(value) and "暂未展示" not in value
+
+
+def limit_fragment(text: str, max_chars: int) -> str:
+    text = _clean_text(text)
+    if len(text) <= max_chars:
+        return text
+    return text[:max_chars].rstrip("，、；;。.!！?？") + "..."
 
 
 def build_narration_result(job: JobPayload, spoken_text: str, source: str) -> NarrationResult:
