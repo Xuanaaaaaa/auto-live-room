@@ -1,5 +1,8 @@
 # 自动化直播间项目总览与 Windows 启动流程
 
+> 当前文档描述的是 **WSL2 虚拟机 + Windows 本地工具** 的实现版本：自动化直播间主链路在 WSL2 Ubuntu 中运行，OBS Studio、微信开发者工具和小程序 UI 自动化在 Windows 本地运行。
+> 同一套主链路也可以直接在 Mac 本地运行。后续如果开发“全部原生 Windows 版本”，需要另行补充 PowerShell/Windows venv/原生路径相关流程。
+
 本文档把当前仓库中的两部分能力合在一起说明：
 
 1. **自动化直播间主链路**：抖音直播间弹幕 -> 弹幕结构化 -> aibz 岗位 API 查询 -> 豆包 LLM 解说 -> 豆包 TTS 音频 -> OBS 展示/播放。
@@ -23,24 +26,117 @@
 
 | 目录 / 文件 | 作用 | 运行位置 |
 |---|---|---|
-| `弹幕提取/DouyinLiveWebFetcher/` | 连接抖音 Web 直播间 WebSocket，保存原始弹幕，并把有效查岗弹幕写成结构化 JSONL | WSL2 Ubuntu |
-| `弹幕提取/DouyinLiveWebFetcher/弹幕分析脚本/danmaku_parser.py` | 弹幕解析：噪声过滤、规则命中、可选 LLM 兜底、去重 | WSL2 Ubuntu |
-| `小程序API提取岗位信息/aibz_job_search.py` | 直连 aibz 后端岗位搜索接口，完成签名、参数清洗、响应整理 | WSL2 Ubuntu |
-| `语音生成/job_narration_workflow.py` | 根据岗位结果生成直播口播文案，并调用豆包 TTS 生成 mp3 | WSL2 Ubuntu |
-| `链路监控/orchestrator.py` | 主编排器：tail 弹幕 JSONL，串起 API 查询、LLM、TTS，写 events/traces | WSL2 Ubuntu |
-| `链路监控/monitor.py` | 只读监控器：读取 events JSONL，展示实时链路状态 | WSL2 Ubuntu |
-| `Obs_auto/obs_jsonl_text_updater.py` | 从结构化弹幕 JSONL 读取最新字段，更新 OBS 文本源 | WSL2 Ubuntu，控制 Windows OBS |
-| `Obs_auto/obs_audio_player.py` | 从 events JSONL 读取 `audio_path`，通过 OBS 媒体源播放 mp3 | WSL2 Ubuntu，控制 Windows OBS |
-| `scripts/*.sh` | WSL/Linux/macOS 侧初始化、启动、停止、查看日志脚本 | WSL2 Ubuntu |
+| `弹幕提取/DouyinLiveWebFetcher/` | 连接抖音 Web 直播间 WebSocket，保存原始弹幕，并把有效查岗弹幕写成结构化 JSONL | Mac 本地 / WSL2 Ubuntu |
+| `弹幕提取/DouyinLiveWebFetcher/弹幕分析脚本/danmaku_parser.py` | 弹幕解析：噪声过滤、规则命中、可选 LLM 兜底、去重 | Mac 本地 / WSL2 Ubuntu |
+| `小程序API提取岗位信息/aibz_job_search.py` | 直连 aibz 后端岗位搜索接口，完成签名、参数清洗、响应整理 | Mac 本地 / WSL2 Ubuntu |
+| `语音生成/job_narration_workflow.py` | 根据岗位结果生成直播口播文案，并调用豆包 TTS 生成 mp3 | Mac 本地 / WSL2 Ubuntu |
+| `链路监控/orchestrator.py` | 主编排器：tail 弹幕 JSONL，串起 API 查询、LLM、TTS，写 events/traces | Mac 本地 / WSL2 Ubuntu |
+| `链路监控/monitor.py` | 只读监控器：读取 events JSONL，展示实时链路状态 | Mac 本地 / WSL2 Ubuntu |
+| `Obs_auto/obs_jsonl_text_updater.py` | 从结构化弹幕 JSONL 读取最新字段，更新 OBS 文本源 | Mac 本地控制 Mac OBS / WSL2 控制 Windows OBS |
+| `Obs_auto/obs_audio_player.py` | 从 events JSONL 读取 `audio_path`，通过 OBS 媒体源播放 mp3 | Mac 本地控制 Mac OBS / WSL2 控制 Windows OBS |
+| `scripts/*.sh` | WSL/Linux/macOS 侧初始化、启动、停止、查看日志脚本 | Mac 本地 / WSL2 Ubuntu |
 | `automation/watch-danmu.js` | 外部 clone 后可用；监听结构化弹幕 JSONL，串行驱动小程序 UI 自动化 | Windows |
 | `automation/lib/automation-core.js` | 外部 clone 后可用；微信开发者工具连接、自动登录、筛选、点击岗位、详情滚动、截图等核心动作 | Windows |
 | `automation/loop-search.js` | 外部 clone 后可用；小程序 UI 自动化的离线批量/单条测试入口 | Windows |
 
+## 2. 运行位置与命令差异
+
+### 2.1 Mac 本地运行
+
+Mac 上可以直接运行 `auto-live-room` 主项目。OBS 如果也在 Mac 上，就用 `OBS_HOST=localhost` 控制本机 OBS。
+
+```bash
+cp .env.example .env
+./scripts/bootstrap.sh
+./scripts/start_all.sh
+./scripts/status.sh
+./scripts/logs.sh monitor
+./scripts/stop_all.sh
+```
+
+Mac 上的 OBS 旁路命令也是 Bash 脚本：
+
+```bash
+./scripts/run_obs_text.sh
+./scripts/run_obs_audio.sh
+```
+
+如果只跑主链路，不跑小程序 UI 自动化，不需要 clone `automation`。
+
+### 2.2 Windows 当前推荐运行方式
+
+Windows 当前推荐是 **WSL2 Ubuntu + Windows 本地工具**：
+
+```text
+WSL2 Ubuntu:
+  auto-live-room 主链路
+  scripts/*.sh
+  Python venv
+  events / traces / audio
+
+Windows 本地:
+  OBS Studio
+  微信开发者工具
+  Node.js
+  automation 独立仓库
+```
+
+WSL2 中运行主链路，命令和 Mac 基本一致：
+
+```bash
+cp .env.example .env
+./scripts/bootstrap.sh
+./scripts/start_all.sh
+./scripts/status.sh
+./scripts/logs.sh monitor
+./scripts/stop_all.sh
+```
+
+区别主要在路径和 GUI 工具：
+
+| 场景 | Mac 本地 | Windows 当前版本 |
+|---|---|---|
+| 主项目 `auto-live-room` | Mac 终端直接跑 Bash 脚本 | WSL2 Ubuntu 中跑 Bash 脚本 |
+| OBS Studio | Mac 本机 OBS | Windows 本机 OBS |
+| OBS WebSocket Host | 通常 `localhost` | WSL 里通常填 Windows 宿主机 IP |
+| TTS 音频路径 | 普通 macOS 路径即可 | 推荐 `AUDIO_DIR=/mnt/c/...` |
+| OBS 音频路径转换 | `OBS_AUDIO_PATH_MODE=auto` 或 `posix` | `OBS_AUDIO_PATH_MODE=wsl-to-windows` |
+| 小程序 UI 自动化 | 当前未作为主流程描述 | Windows 本地运行 `automation` |
+| 小程序监听路径 | 不适用或需另配 | `\\wsl$\Ubuntu\...\output` |
+
+Windows 本地启动小程序自动化使用 PowerShell/CMD，而不是 Bash：
+
+```powershell
+cd D:\workspace\auto-live-room
+git clone https://github.com/Xuanaaaaaa/automation.git automation
+
+cd D:\workspace\auto-live-room\automation
+npm install miniprogram-automator
+
+$env:DANMU_JSONL_DIR = "\\wsl$\Ubuntu\home\hermes\auto-live-room\弹幕提取\DouyinLiveWebFetcher\output"
+node watch-danmu.js
+```
+
+### 2.3 暂未覆盖的原生 Windows 版本
+
+当前仓库没有提供完整原生 Windows PowerShell 启停脚本。也就是说，不建议直接在 Windows 原生 Python 环境中运行 `auto-live-room` 主链路。
+
+未来如果开发全部原生 Windows 版本，需要单独补齐：
+
+```text
+scripts/start_all.ps1
+scripts/stop_all.ps1
+scripts/status.ps1
+scripts/logs.ps1
+Windows 原生 venv 路径，如 venv\Scripts\python.exe
+Windows 原生音频路径和 OBS 路径处理
+```
+
 ---
 
-## 2. 总体运行链路
+## 3. 总体运行链路
 
-### 2.1 弹幕输入与结构化
+### 3.1 弹幕输入与结构化
 
 `scripts/run_danmu.sh` 会进入 `弹幕提取/DouyinLiveWebFetcher/`，使用该目录下的 `venv/bin/python` 启动 `main.py`。
 
@@ -96,7 +192,7 @@
 
 这份 JSONL 是后续所有模块的主输入。
 
-### 2.2 主链路：岗位 API、解说和 TTS
+### 3.2 主链路：岗位 API、解说和 TTS
 
 `scripts/run_pipeline.sh` 会启动 `链路监控/orchestrator.py`。
 
@@ -143,7 +239,7 @@ received
 }
 ```
 
-### 2.3 OBS 文本和音频旁路
+### 3.3 OBS 文本和音频旁路
 
 OBS 相关脚本不在 `scripts/start_all.sh` 中自动启动，需要单独运行。
 
@@ -173,7 +269,7 @@ OBS_AUDIO_PATH_MODE=wsl-to-windows
 
 这样 OBS 音频旁路会把 `/mnt/c/...` 转成 `C:\...` 后交给 Windows OBS。
 
-### 2.4 小程序 UI 自动化链路
+### 3.4 小程序 UI 自动化链路
 
 `automation/watch-danmu.js` 在 Windows 上运行。它通过 Windows 的 `\\wsl$` 路径监听 WSL 中的结构化弹幕输出目录：
 
@@ -229,9 +325,9 @@ automation/test-runs/watch-{timestamp}/
 
 ---
 
-## 3. 数据流向
+## 4. 数据流向
 
-### 3.1 文件级数据流
+### 4.1 文件级数据流
 
 ```text
 抖音 WebSocket
@@ -259,7 +355,7 @@ automation/test-runs/watch-{timestamp}/
        -> OBS 媒体源播放 mp3
 ```
 
-### 3.2 环境变量数据流
+### 4.2 环境变量数据流
 
 根目录 `.env` 是 WSL 主链路的配置中心。核心变量：
 
@@ -288,7 +384,7 @@ automation/test-runs/watch-{timestamp}/
 
 ---
 
-## 4. Windows 上的完整启动流程
+## 5. Windows 上的完整启动流程
 
 推荐部署形态：
 
@@ -301,7 +397,7 @@ Windows 宿主机
        └─ 自动化直播间 Python 主链路
 ```
 
-### 4.1 Windows 侧准备
+### 5.1 Windows 侧准备
 
 1. 安装 **WSL2 Ubuntu**。
 2. 安装 **OBS Studio**。
@@ -315,7 +411,7 @@ Windows 宿主机
    - 创建文本源，默认可命名为 `当前查询`。
    - 创建媒体源，默认可命名为 `岗位语音`。
 
-### 4.2 WSL2 Ubuntu 初始化项目
+### 5.2 WSL2 Ubuntu 初始化项目
 
 在 WSL2 中：
 
@@ -369,7 +465,7 @@ cat /etc/resolv.conf | grep nameserver
 Obs_auto/.venv
 ```
 
-### 4.3 启动主链路
+### 5.3 启动主链路
 
 在 WSL 项目根目录：
 
@@ -407,7 +503,7 @@ logs/monitor.log
 PIPELINE_DRY_RUN=1 PIPELINE_FROM_START=1 PIPELINE_NO_TTS=1 ./scripts/run_pipeline.sh
 ```
 
-### 4.4 启动 OBS 文本和音频旁路
+### 5.4 启动 OBS 文本和音频旁路
 
 OBS 旁路需要单独终端启动。
 
@@ -435,7 +531,7 @@ OBS_AUDIO_DRY_RUN=1 OBS_AUDIO_ONCE=1 ./scripts/run_obs_audio.sh
 ./scripts/run_obs_audio.sh
 ```
 
-### 4.5 Windows 上准备小程序 UI 自动化
+### 5.5 Windows 上准备小程序 UI 自动化
 
 以下步骤在 Windows PowerShell 或 CMD 中执行。
 
@@ -474,7 +570,7 @@ cli.bat auto --project <小程序项目路径> --auto-port 9420
 
 所以通常不需要手动提前执行 `cli.bat auto`。如果默认路径不一致，请用环境变量覆盖。
 
-### 4.6 启动小程序弹幕 watcher
+### 5.6 启动小程序弹幕 watcher
 
 PowerShell 示例：
 
@@ -522,7 +618,7 @@ node loop-search.js --file test-queries.json
 
 ---
 
-## 5. 推荐启动顺序
+## 6. 推荐启动顺序
 
 正式直播时建议按这个顺序：
 
@@ -582,7 +678,7 @@ node watch-danmu.js
 
 ---
 
-## 6. 关停流程
+## 7. 关停流程
 
 Windows 小程序 watcher：
 
@@ -612,9 +708,9 @@ monitor -> pipeline -> danmu
 
 ---
 
-## 7. 当前边界与需要确认的点
+## 8. 当前边界与需要确认的点
 
-### 7.1 automation 状态事件已独立落盘
+### 8.1 automation 状态事件已独立落盘
 
 远端 `Xuanaaaaaa/automation` 最新提交 `dfea725` 已将状态事件改为独立落盘。`automation/watch-danmu.js` 不再把状态事件追加回结构化弹幕 JSONL，而是写入：
 
@@ -638,7 +734,7 @@ $env:AUTOMATION_STATUS_JSONL = "D:\workspace\auto-live-room\automation\test-runs
 
 因此主编排器 `链路监控/orchestrator.py` 只会继续消费弹幕解析输出，不会被 UI 自动化状态事件误触发。
 
-### 7.2 城市筛选尚未精确映射
+### 8.2 城市筛选尚未精确映射
 
 弹幕解析可以提取 `北京/上海/杭州` 等城市；aibz API 主链路会把城市放进 `query_payload.intention_location`。
 
@@ -652,7 +748,7 @@ $env:AUTOMATION_STATUS_JSONL = "D:\workspace\auto-live-room\automation\test-runs
 
 以及更精确的城市选择页操作。
 
-### 7.3 小程序路径和 DevTools 路径需要按机器配置
+### 8.3 小程序路径和 DevTools 路径需要按机器配置
 
 默认值来自 `automation/lib/automation-core.js`：
 
@@ -664,7 +760,7 @@ WECHAT_AUTO_PORT 默认 9420
 
 新 Windows 电脑如果目录不同，不要改代码，优先用环境变量覆盖。
 
-### 7.4 token 和 key 都是本机配置
+### 8.4 token 和 key 都是本机配置
 
 `.env` 不应提交到 Git。换电脑后需要重新配置：
 
@@ -686,7 +782,7 @@ JobSearchError code=301
 
 ---
 
-## 8. 快速命令索引
+## 9. 快速命令索引
 
 WSL 主链路：
 
