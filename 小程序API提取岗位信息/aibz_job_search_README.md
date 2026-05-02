@@ -279,7 +279,7 @@ while True:
 `弹幕提取` 项目每行 JSONL 里的 `query_payload` 就是为这个接口设计的。脚本提供了 `search_jobs_from_payload`，自动做以下两件事：
 
 - 过滤掉接口不认的字段（`position`、`query_date`、`strategy` 等历史残留）
-- 把弹幕端归一化的 `education` 非白名单值（`985/211`、`一本`、`二本`、`中专`、`高中`、`不限`）丢弃 —— 接口只识别 `本科/硕士/博士/大专`
+- 把 `education` 归一化为接口识别值（`大专`、`中专`、`专科` 均转为 `专科`），并丢弃非白名单值（`985/211`、`一本`、`二本`、`高中`、`不限`）
 
 ```python
 import json

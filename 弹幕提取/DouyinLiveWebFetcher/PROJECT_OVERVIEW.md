@@ -273,7 +273,7 @@ room = DouyinLiveWebFetcher(live_id, dedup_ttl=120)  # 改成 2 分钟窗口
 |---|---|---|---|
 | `intention_job` | [string] 或 null | `keyword` | 有值 → 单元素数组 `[keyword]`；空 → `null` |
 | `intention_location` | [string] 或 null | `city` | 有值 → 单元素数组 `[city]`；空 → `null`（不补省份） |
-| `education` | string 或 null | `education` | 直接复用顶层 `education`；下游适配层会丢弃接口不识别的归一化值（如 `985/211`、`一本`） |
+| `education` | string 或 null | `education` | 直接复用顶层 `education`；`大专`、`专科`、`中专` 会归一为 `专科`；下游适配层会丢弃接口不识别的归一化值（如 `985/211`、`一本`） |
 | `major` | null | — | 暂不抽取，恒为 `null` |
 | `intention_company` | null | — | 暂不抽取 |
 | `job_type` | null | — | 暂不抽取（如"全职"） |

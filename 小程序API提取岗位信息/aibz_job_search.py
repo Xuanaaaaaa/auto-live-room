@@ -235,7 +235,16 @@ _SEARCH_FILTER_KEYS = {
     "is_unlimited_major", "query_str", "order_by", "jobCategory", "timeType",
 }
 
-_EDUCATION_PASSTHROUGH = {"本科", "硕士", "博士", "大专"}
+_EDUCATION_NORMALIZE = {
+    "博士": "博士",
+    "硕士": "硕士",
+    "本科": "本科",
+    "大专": "专科",
+    "中专": "专科",
+    "专科": "专科",
+}
+
+_EDUCATION_PASSTHROUGH = set(_EDUCATION_NORMALIZE.values())
 
 
 def _adapt_payload_to_filters(payload):
@@ -246,8 +255,13 @@ def _adapt_payload_to_filters(payload):
     - education 非白名单值丢弃 (如 '985/211'、'一本')
     """
     filters = {k: v for k, v in payload.items() if k in _SEARCH_FILTER_KEYS}
-    if filters.get("education") not in _EDUCATION_PASSTHROUGH:
-        filters.pop("education", None)
+    education = filters.get("education")
+    if education is not None:
+        normalized_education = _EDUCATION_NORMALIZE.get(education)
+        if normalized_education in _EDUCATION_PASSTHROUGH:
+            filters["education"] = normalized_education
+        else:
+            filters.pop("education", None)
     return filters
 
 
