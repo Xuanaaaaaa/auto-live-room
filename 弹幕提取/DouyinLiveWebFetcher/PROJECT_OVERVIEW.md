@@ -200,7 +200,7 @@ room = DouyinLiveWebFetcher(live_id, enable_llm=True)
 - 去重键 = **全部已提取字段** 拼接后做 MD5：
 
 ```
-key = md5( keyword | city | salary | experience | education | industry )
+key = md5( keyword | city | salary | experience | education | graduate_time | industry )
 ```
 
 - 窗口内键重复 → 丢弃，不输出到 JSONL
@@ -252,6 +252,7 @@ room = DouyinLiveWebFetcher(live_id, dedup_ttl=120)  # 改成 2 分钟窗口
 | `salary` | string 或 null | ❌ | 薪资 | "15k-25k" |
 | `experience` | string 或 null | ❌ | 工作年限 | "3年" |
 | `education` | string 或 null | ❌ | 学历（已归一化） | "985/211" |
+| `graduate_time` | string 或 null | ❌ | 毕业时间，`25`-`28` 届归一为 `2025`-`2028`，更早归一为 `往届` | "2026" |
 | `source` | string | ✅ | 解析来源：`"rule"` 或 `"llm"` | "rule" |
 | `raw_text` | string | ✅ | 原始弹幕文本 | "查北京产品经理 15k-25k" |
 | `query_payload` | object | ✅ | 派生的下游搜索请求对象，结构见 5.3 | 见下例 |
@@ -259,7 +260,7 @@ room = DouyinLiveWebFetcher(live_id, dedup_ttl=120)  # 改成 2 分钟窗口
 #### 示例行
 
 ```json
-{"ts":"2026-04-27 10:39:12","live_id":"59475730286","user_id":"1001","user_name":"Alice","keyword":"产品经理","city":"北京","industry":null,"salary":"15k-25k","experience":null,"education":null,"source":"rule","raw_text":"查北京产品经理 15k-25k","query_payload":{"major":null,"education":null,"intention_job":["产品经理"],"intention_company":null,"intention_location":["北京"],"job_type":null,"graduate_time":null,"company_type":null,"is_unlimited_major":null,"order_by":null,"jobCategory":null,"timeType":null}}
+{"ts":"2026-04-27 10:39:12","live_id":"59475730286","user_id":"1001","user_name":"Alice","keyword":"产品经理","city":"北京","industry":null,"salary":"15k-25k","experience":null,"education":null,"graduate_time":null,"source":"rule","raw_text":"查北京产品经理 15k-25k","query_payload":{"major":null,"education":null,"intention_job":["产品经理"],"intention_company":null,"intention_location":["北京"],"job_type":null,"graduate_time":null,"company_type":null,"is_unlimited_major":null,"order_by":null,"jobCategory":null,"timeType":null}}
 ```
 
 ### 5.3 `query_payload` 子字段定义
@@ -276,14 +277,14 @@ room = DouyinLiveWebFetcher(live_id, dedup_ttl=120)  # 改成 2 分钟窗口
 | `major` | null | — | 暂不抽取，恒为 `null` |
 | `intention_company` | null | — | 暂不抽取 |
 | `job_type` | null | — | 暂不抽取（如"全职"） |
-| `graduate_time` | null | — | 暂不抽取 |
+| `graduate_time` | string 或 null | `graduate_time` | 直接复用顶层毕业时间，如 `"2026"` 或 `"往届"` |
 | `company_type` | null | — | 暂不抽取 |
 | `is_unlimited_major` | null | — | 暂不抽取 |
 | `order_by` | null | — | 排序方式（`start_time`/`company_attraction`/`deadline`），由下游决定 |
 | `jobCategory` | null | — | 岗位类型分类，由下游决定（注意：与顶层 `industry` 行业语义不等同，未做映射） |
 | `timeType` | null | — | 今日最新/即将到期，由下游决定 |
 
-> **设计说明**：顶层 12 字段是"弹幕事件 + 抽取结果"语义，含完整溯源信息（user_id、raw_text、source）；`query_payload` 是派生出的下游入参对象。两层分离的好处：调试和复测看顶层，对接下游搜索接口直接 `record["query_payload"]` 整体 POST 即可，schema 演进互不影响。
+> **设计说明**：顶层 13 字段是"弹幕事件 + 抽取结果"语义，含完整溯源信息（user_id、raw_text、source）；`query_payload` 是派生出的下游入参对象。两层分离的好处：调试和复测看顶层，对接下游搜索接口直接 `record["query_payload"]` 整体 POST 即可，schema 演进互不影响。
 >
 > **不输出的字段及原因**：
 > - `position`：与 `intention_job` 语义重复，aibz 后端只识别 `intention_job`

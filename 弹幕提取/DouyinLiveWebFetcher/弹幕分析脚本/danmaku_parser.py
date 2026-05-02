@@ -28,6 +28,7 @@ class JobQuery:
     salary: Optional[str] = None        # 薪资要求，如 "15k-25k"
     experience: Optional[str] = None    # 经验要求，如 "3年"
     education: Optional[str] = None     # 学历要求，如 "本科"
+    graduate_time: Optional[str] = None # 毕业时间，如 "2026" 或 "往届"
     raw_text: str = ""                  # 原始弹幕
     source: str = ""                    # 解析来源: "rule" | "llm"
 
@@ -128,6 +129,13 @@ EXPERIENCE_PATTERNS = [
     (r'应届(?:生|毕业生)?', lambda m: "应届"),
     # 无经验
     (r'无经验|没经验|不限经验|经验不限', lambda m: "不限"),
+]
+
+# 毕业年份正则模式（保守匹配明确年份/届别表达）
+GRADUATE_TIME_PATTERNS = [
+    (r'(20[0-3]\d)\s*(?:届|年\s*(?:毕业|毕业生))', lambda m: _normalize_graduate_time(m.group(1))),
+    (r'(?:毕业时间|毕业年份|毕业|应届)\s*[:：]?\s*(20[0-3]\d)', lambda m: _normalize_graduate_time(m.group(1))),
+    (r'(?<!\d)([0-3]\d)\s*(?:届|年\s*毕业)', lambda m: _normalize_graduate_time(m.group(1))),
 ]
 
 # ---------- LLM 配置 ----------
@@ -251,6 +259,7 @@ def rule_parse(text: str) -> Optional[JobQuery]:
     experience = _extract_experience(text)
     education  = _extract_education(text)
     industry   = _extract_industry(text)
+    graduate_time = _extract_graduate_time(text)
 
     # --- 路径 A: 触发词 + 岗位关键词 ---
     for trigger in INTENT_TRIGGERS:
@@ -268,6 +277,7 @@ def rule_parse(text: str) -> Optional[JobQuery]:
                     salary=salary,
                     experience=experience,
                     education=education,
+                    graduate_time=graduate_time,
                     industry=industry,
                     raw_text=text,
                     source="rule",
@@ -278,7 +288,7 @@ def rule_parse(text: str) -> Optional[JobQuery]:
     if keyword:
         # 放宽长度限制：原始文本去掉已识别实体后剩余不超过 10 字符即可
         stripped = text
-        for entity in [city, salary, experience, education, industry]:
+        for entity in [city, salary, experience, education, industry, graduate_time]:
             if entity:
                 stripped = stripped.replace(entity, '', 1)
         stripped = re.sub(r'[的岗位职位工作招聘\s]', '', stripped)
@@ -291,6 +301,7 @@ def rule_parse(text: str) -> Optional[JobQuery]:
                 salary=salary,
                 experience=experience,
                 education=education,
+                graduate_time=graduate_time,
                 industry=industry,
                 raw_text=text,
                 source="rule",
@@ -341,6 +352,27 @@ def _extract_education(text: str) -> Optional[str]:
     for keyword in sorted(EDUCATIONS.keys(), key=len, reverse=True):
         if keyword in text:
             return EDUCATIONS[keyword]
+    return None
+
+
+def _normalize_graduate_time(year_text: str) -> Optional[str]:
+    """归一化毕业时间：25-28 届保留年份，更早统一为往届"""
+    year = int(year_text)
+    if year < 100:
+        year += 2000
+    if year < 2025:
+        return "往届"
+    if year <= 2028:
+        return str(year)
+    return None
+
+
+def _extract_graduate_time(text: str) -> Optional[str]:
+    """从文本中提取毕业年份"""
+    for pattern, formatter in GRADUATE_TIME_PATTERNS:
+        m = re.search(pattern, text)
+        if m:
+            return formatter(m)
     return None
 
 
@@ -427,6 +459,7 @@ class DedupeCache:
             query.salary or '',
             query.experience or '',
             query.education or '',
+            query.graduate_time or '',
             query.industry or '',
         ]
         raw = "|".join(parts).lower()
@@ -557,6 +590,8 @@ if __name__ == "__main__":
         "查北京产品经理 本科",                   # 学历
         "找深圳算法 硕士",                       # 硕士
         "上海前端 大专",                         # 大专
+        "查北京产品经理 26届",                   # 毕业年份
+        "查上海前端 24届",                       # 往届
 
         # ---- 带行业 ----
         "查北京互联网产品经理",                  # 行业+岗位
@@ -591,6 +626,7 @@ if __name__ == "__main__":
             if result.salary:     fields.append(f"薪资={result.salary}")
             if result.experience: fields.append(f"经验={result.experience}")
             if result.education:  fields.append(f"学历={result.education}")
+            if result.graduate_time: fields.append(f"毕业年份={result.graduate_time}")
             print(f"  ✅  \"{dm}\"")
             print(f"      → {', '.join(fields)}  [{result.source}]")
         else:

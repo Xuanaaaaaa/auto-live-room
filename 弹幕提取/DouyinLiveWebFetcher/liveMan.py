@@ -406,7 +406,7 @@ class DouyinLiveWebFetcher:
             "intention_company": None,
             "intention_location": [city] if city else None,
             "job_type": None,
-            "graduate_time": None,
+            "graduate_time": result.graduate_time,
             "company_type": None,
             "is_unlimited_major": None,
             "order_by": None,

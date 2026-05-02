@@ -81,6 +81,7 @@ def main():
         if result.salary:     fields.append(f"薪资={result.salary}")
         if result.experience: fields.append(f"经验={result.experience}")
         if result.education:  fields.append(f"学历={result.education}")
+        if result.graduate_time: fields.append(f"毕业年份={result.graduate_time}")
         print(f"  [HIT]   命中 [{result.source}]")
         print(f"          {', '.join(fields)}")
 
