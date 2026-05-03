@@ -148,7 +148,7 @@ def extract_audio_event(data: dict[str, Any]) -> AudioEvent | None:
 
     if not audio_path:
         return None
-    if stage not in ("completed", "synthesized"):
+    if stage not in ("completed", "synthesized", "voice_synthesized"):
         return None
 
     return AudioEvent(
@@ -377,4 +377,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

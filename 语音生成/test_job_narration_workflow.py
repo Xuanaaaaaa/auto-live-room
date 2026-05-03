@@ -10,8 +10,12 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from job_narration_workflow import (  # noqa: E402
+    VoiceRequest,
     build_llm_messages,
+    build_voice_llm_messages,
+    build_danmu_received_result,
     build_narration_result,
+    generate_template_voice_script,
     generate_template_script,
     generate_template_spoken_text,
     normalize_job,
@@ -119,6 +123,77 @@ class TemplateNarrationTests(unittest.TestCase):
         self.assertTrue(result.spoken_text.startswith("现在看到的是上海"))
         self.assertEqual(result.title, "Java开发实习生")
         self.assertEqual(result.tags[:2], ["Java", "Spring"])
+
+    def test_job_found_voice_prompt_can_include_danmu_context(self) -> None:
+        job = normalize_job(
+            {
+                "id": 6,
+                "name": "产品经理实习生",
+                "company_name": "星河科技",
+                "city": "北京",
+            }
+        )
+
+        messages = build_voice_llm_messages(
+            VoiceRequest(
+                scene="job_found",
+                danmu={"raw_text": "查北京产品经理 本科", "keyword": "产品经理", "city": "北京"},
+                job=job,
+                search_summary={"count": 8, "returned": 3},
+            )
+        )
+        prompt = "\n".join(message["content"] for message in messages)
+
+        self.assertIn("viewer_query", prompt)
+        self.assertIn("查北京产品经理 本科", prompt)
+        self.assertIn("search_summary", prompt)
+        self.assertIn("产品经理实习生", prompt)
+
+    def test_danmu_received_voice_template_is_short_ack(self) -> None:
+        result = generate_template_voice_script(
+            VoiceRequest(
+                scene="danmu_received",
+                danmu={"raw_text": "查北京产品经理 本科", "keyword": "产品经理", "city": "北京", "education": "本科"},
+            )
+        )
+
+        self.assertTrue(result.should_play)
+        self.assertEqual(result.source, "template")
+        self.assertIn("产品经理", result.spoken_text)
+        self.assertNotIn("你", result.spoken_text)
+        self.assertLessEqual(len(result.spoken_text), 80)
+
+    def test_danmu_received_voice_template_has_stable_variants(self) -> None:
+        samples = [
+            {"raw_text": "查北京产品经理 本科", "keyword": "产品经理", "city": "北京", "education": "本科"},
+            {"raw_text": "看看上海前端", "keyword": "前端", "city": "上海"},
+            {"raw_text": "搜杭州Java硕士", "keyword": "Java", "city": "杭州", "education": "硕士"},
+            {"raw_text": "有没有深圳运营", "keyword": "运营", "city": "深圳"},
+        ]
+
+        texts = {
+            generate_template_voice_script(
+                VoiceRequest(scene="danmu_received", danmu=sample)
+            ).spoken_text
+            for sample in samples
+        }
+
+        self.assertGreaterEqual(len(texts), 3)
+        for text in texts:
+            self.assertNotIn("你", text)
+
+    def test_danmu_received_result_rewrites_direct_you(self) -> None:
+        result = build_danmu_received_result(
+            VoiceRequest(
+                scene="danmu_received",
+                danmu={"raw_text": "查北京产品经理", "keyword": "产品经理", "city": "北京"},
+            ),
+            "好，我看到有观众想查北京产品经理，马上来帮你找找看。",
+            source="doubao",
+        )
+
+        self.assertNotIn("你", result.spoken_text)
+        self.assertIn("帮这位朋友", result.spoken_text)
 
 
 if __name__ == "__main__":

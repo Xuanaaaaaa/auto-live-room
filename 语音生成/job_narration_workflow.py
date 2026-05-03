@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import argparse
 import base64
+import hashlib
 import json
 import os
 import subprocess
@@ -89,6 +90,14 @@ class NarrationResult:
     tags: Optional[list[str]] = None
     risk_tips: Optional[list[str]] = None
     source: str = "llm"
+
+
+@dataclass
+class VoiceRequest:
+    scene: str
+    danmu: Optional[Dict[str, Any]] = None
+    job: Optional[JobPayload] = None
+    search_summary: Optional[Dict[str, Any]] = None
 
 
 @dataclass
@@ -189,8 +198,8 @@ def normalize_job(job: Dict[str, Any]) -> JobPayload:
     )
 
 
-def build_llm_messages(job: JobPayload) -> list[dict[str, str]]:
-    compact_job = {
+def compact_job_payload(job: JobPayload) -> Dict[str, Any]:
+    return {
         "id": job.id,
         "name": job.name,
         "company_name": job.company_name,
@@ -202,19 +211,101 @@ def build_llm_messages(job: JobPayload) -> list[dict[str, str]]:
         "recommendedMessage": job.recommended_message,
         "extra_fields": job.extra_fields,
     }
+
+
+def compact_danmu_payload(danmu: Optional[Dict[str, Any]]) -> Dict[str, Any]:
+    if not isinstance(danmu, dict):
+        return {}
+    keys = ("raw_text", "keyword", "city", "education", "experience", "salary", "source")
+    return {
+        key: danmu.get(key)
+        for key in keys
+        if danmu.get(key) not in (None, "", [], {})
+    }
+
+
+def build_llm_messages(job: JobPayload) -> list[dict[str, str]]:
+    return build_voice_llm_messages(VoiceRequest(scene="job_found", job=job))
+
+
+def build_voice_llm_messages(request: VoiceRequest) -> list[dict[str, str]]:
+    if request.scene == "danmu_received":
+        return build_danmu_received_messages(request)
+    if request.scene == "job_found":
+        return build_job_found_messages(request)
+    raise WorkflowError(f"Unsupported voice scene: {request.scene}")
+
+
+def build_job_found_messages(request: VoiceRequest) -> list[dict[str, str]]:
+    if request.job is None:
+        raise WorkflowError("job_found voice request requires job.")
+    compact_request = {
+        "scene": request.scene,
+        "viewer_query": compact_danmu_payload(request.danmu),
+        "search_summary": request.search_summary or {},
+        "job": compact_job_payload(request.job),
+    }
     system_prompt = """
-你是直播间的求职查岗解说助手。你的任务是把一个真实打开的岗位信息，改写成适合直播间播报的中文短口播。
+你是直播间里正在帮观众查岗位的主播，不是播音员。你正在打开一个真实岗位页面，一边看页面，一边用自然口语把重点讲给观众听。
+
+表达方式：
+1. 开头要像正在帮观众看页面，可以用“好，我这边帮你看一下”“嗯，这个岗位我看到了”“咱们先看这个”这类口语表达。
+2. 说清岗位名、公司和城市。
+3. 从页面里挑 1 到 2 个最值得听的重点，比如岗位类型、学历、经验、职责、技能或专业要求。
+4. 结尾自然收住，可以说“方向匹配的话可以再看一下详情”“这个可以先记一下”“后面重点核对一下职责和投递时间”。
+
+硬性要求：
+1. 只基于传入 JSON 中已有字段生成，不要编造薪资、学历、经验、福利、风险。
+2. 语气要像真人主播边查边说，口语、自然、短句，可以有少量“嗯”“好”“这边”“咱们”这类语气词和口头禅。
+3. 不要过度热情，不要像带货广告、新闻播报、招聘公告或官方通知。
+4. 不要使用“接下来播报”“为大家介绍”“岗位来了”“各位求职朋友”“该岗位位于”“求职者可关注”等广播腔表达。
+5. 字段缺失时不要硬说，用“页面暂时没写清楚”这类保守表达。
+6. 控制在 90 到 150 个中文字符之间，适合 10 到 18 秒说完。
+7. 只输出口播文案本身，不要输出 JSON、Markdown、标题、标签、解释或前后缀。
+""".strip()
+    user_prompt = "查岗上下文和岗位页面 JSON 如下，请写成主播正在帮观众查岗时说的话：\n" + json.dumps(
+        compact_request, ensure_ascii=False
+    )
+    return [
+        {"role": "system", "content": system_prompt},
+        {"role": "user", "content": user_prompt},
+    ]
+
+
+def build_danmu_received_messages(request: VoiceRequest) -> list[dict[str, str]]:
+    danmu = compact_danmu_payload(request.danmu)
+    seed = _clean_text(danmu.get("raw_text")) or json.dumps(danmu, ensure_ascii=False)
+    compact_request = {
+        "scene": request.scene,
+        "viewer_query": danmu,
+        "style_hint": {
+            "preferred_opening": pick_stable_variant(
+                [
+                    "好，我看到有观众",
+                    "嗯，这位观众",
+                    "刚刚有朋友",
+                    "这条弹幕",
+                ],
+                seed,
+            )
+        },
+    }
+    system_prompt = """
+你是直播间里正在帮观众查岗位的主播。现在你刚看到一条观众弹幕，还没有开始搜索，也没有岗位结果。
 
 要求：
-1. 只基于传入 JSON 中已有字段生成，不要编造薪资、学历、经验、福利、风险。
-2. 口播自然、清晰、偏专业求职顾问风格。
-3. 控制在 60 到 120 个中文字符之间，适合 8 到 15 秒播完。
-4. 不要承诺岗位真实性、录用概率、一定高薪、一定靠谱。
-5. 如果字段缺失，用“页面暂未展示”这类保守表达，不要猜。
-6. 只输出口播文案本身，不要输出 JSON、Markdown、标题、标签、解释或前后缀。
+1. 只基于弹幕里的信息回应，不要编造搜索结果、岗位数量、公司、薪资或录用判断。
+2. 语气自然、口语化，像主播顺手回应直播间，可以有少量“好”“嗯”“我这边”“马上”这类语气词。
+3. 表达重点是：我看到有观众发了查询，马上开始查。
+4. 如果弹幕里有岗位、城市、学历等条件，可以顺带复述一两个关键信息。
+5. 不要说“你”“你的”，要说“有观众”“这位观众”“刚刚有朋友”“这条弹幕”。
+6. 优先使用 JSON 里的 style_hint.preferred_opening 作为开头，让不同弹幕有不同说法。
+7. 控制在 25 到 60 个中文字符之间，适合快速插一句。
+8. 同样语义可以换不同说法，不要每次都套同一个句式。
+9. 只输出主播要说的话，不要输出 JSON、Markdown、标题或解释。
 """.strip()
-    user_prompt = "请根据这个岗位 JSON 生成直播查岗口播：\n" + json.dumps(
-        compact_job, ensure_ascii=False
+    user_prompt = "观众弹幕查询 JSON 如下，请写成主播刚看到弹幕时的简短回应：\n" + json.dumps(
+        compact_request, ensure_ascii=False
     )
     return [
         {"role": "system", "content": system_prompt},
@@ -224,8 +315,65 @@ def build_llm_messages(job: JobPayload) -> list[dict[str, str]]:
 
 def generate_template_script(job: JobPayload) -> NarrationResult:
     """Local fallback for dry runs or provider outages."""
-    text = generate_template_spoken_text(job)
-    return build_narration_result(job, text, source="template")
+    return generate_template_voice_script(VoiceRequest(scene="job_found", job=job))
+
+
+def generate_template_voice_script(request: VoiceRequest) -> NarrationResult:
+    """Local fallback for dry runs or provider outages."""
+    if request.scene == "job_found":
+        if request.job is None:
+            raise WorkflowError("job_found voice request requires job.")
+        text = generate_template_spoken_text(request.job)
+        return build_narration_result(request.job, text, source="template")
+    if request.scene == "danmu_received":
+        return build_danmu_received_result(
+            request,
+            generate_template_danmu_received_text(request),
+            source="template",
+        )
+    raise WorkflowError(f"Unsupported voice scene: {request.scene}")
+
+
+def generate_template_danmu_received_text(request: VoiceRequest) -> str:
+    danmu = compact_danmu_payload(request.danmu)
+    keyword = _clean_text(danmu.get("keyword"))
+    city = _clean_text(danmu.get("city"))
+    education = _clean_text(danmu.get("education"))
+    bits = [bit for bit in (city, education, keyword) if bit]
+    if bits:
+        condition = "、".join(bits)
+        templates = [
+            f"好，我看到有观众想查{condition}，我这边马上搜一下。",
+            f"嗯，这位观众要看{condition}，我先帮大家查起来。",
+            f"刚刚有朋友在问{condition}，我这边先搜一下看看。",
+            f"好，这条弹幕是想看{condition}，咱们马上查。",
+        ]
+        return pick_stable_variant(templates, condition)
+    raw_text = _clean_text(danmu.get("raw_text"))
+    if raw_text:
+        templates = [
+            "好，我看到有观众发了查岗弹幕，我这边马上看一下。",
+            "嗯，这条查岗弹幕我看到了，咱们马上开始查。",
+            "刚刚有朋友在问岗位，我这边先帮大家搜一下。",
+            "好，有新的查岗需求进来了，我这边马上处理。",
+        ]
+        return pick_stable_variant(templates, raw_text)
+    return pick_stable_variant(
+        [
+            "好，我看到有观众发了查岗需求，我这边马上看一下。",
+            "嗯，这条查岗需求我看到了，咱们马上开始查。",
+            "刚刚有朋友在问岗位，我这边先帮大家搜一下。",
+            "好，有新的查岗需求进来了，我这边马上处理。",
+        ],
+        "danmu_received",
+    )
+
+
+def pick_stable_variant(options: list[str], seed: str) -> str:
+    if not options:
+        return ""
+    digest = hashlib.md5(seed.encode("utf-8")).hexdigest()
+    return options[int(digest[:8], 16) % len(options)]
 
 
 def generate_template_spoken_text(job: JobPayload) -> str:
@@ -381,6 +529,49 @@ def build_narration_result(job: JobPayload, spoken_text: str, source: str) -> Na
     )
 
 
+def build_danmu_received_result(
+    request: VoiceRequest,
+    spoken_text: str,
+    source: str,
+) -> NarrationResult:
+    """Wrap a short pre-search response for a parsed danmu query."""
+    danmu = compact_danmu_payload(request.danmu)
+    spoken_text = clean_danmu_received_spoken_text(spoken_text)
+    spoken_text = limit_spoken_text(spoken_text, max_chars=80)
+    tags = [
+        _clean_text(danmu.get(key))
+        for key in ("keyword", "city", "education")
+        if _clean_text(danmu.get(key))
+    ]
+    title = _clean_text(danmu.get("raw_text")) or _clean_text(danmu.get("keyword")) or "查岗弹幕"
+    return NarrationResult(
+        spoken_text=spoken_text,
+        duration_level="short",
+        should_play=bool(spoken_text),
+        title=title,
+        tags=tags[:3],
+        risk_tips=[],
+        source=source,
+    )
+
+
+def clean_danmu_received_spoken_text(text: str) -> str:
+    """Keep pre-search acknowledgements addressed to the whole live room."""
+    text = clean_llm_spoken_text(text)
+    replacements = [
+        ("帮你", "帮这位朋友"),
+        ("给你", "给这位朋友"),
+        ("为你", "为这位朋友"),
+        ("你的", "这位观众的"),
+        ("你想", "有观众想"),
+        ("你要", "有观众要"),
+        ("你", "这位观众"),
+    ]
+    for old, new in replacements:
+        text = text.replace(old, new)
+    return text
+
+
 def derive_job_tags(job: JobPayload, max_tags: int = 3) -> list[str]:
     """Derive short display tags without asking the model."""
     tags: list[str] = []
@@ -465,6 +656,17 @@ def clean_llm_spoken_text(text: str) -> str:
 
 def generate_script_with_doubao(job: JobPayload, config: DoubaoLLMConfig) -> NarrationResult:
     """Call a Doubao text model through Volcengine Ark OpenAI-compatible API."""
+    return generate_voice_script_with_doubao(
+        VoiceRequest(scene="job_found", job=job),
+        config,
+    )
+
+
+def generate_voice_script_with_doubao(
+    request: VoiceRequest,
+    config: DoubaoLLMConfig,
+) -> NarrationResult:
+    """Call a Doubao text model through Volcengine Ark OpenAI-compatible API."""
     try:
         from openai import OpenAI
     except ImportError as exc:
@@ -473,12 +675,19 @@ def generate_script_with_doubao(job: JobPayload, config: DoubaoLLMConfig) -> Nar
     client = OpenAI(api_key=config.api_key, base_url=config.base_url)
     completion = client.chat.completions.create(
         model=config.model,
-        messages=build_llm_messages(job),
+        messages=build_voice_llm_messages(request),
         temperature=config.temperature,
         max_tokens=config.max_tokens,
     )
     content = completion.choices[0].message.content or ""
-    narration = build_narration_result(job, content, source="doubao")
+    if request.scene == "job_found":
+        if request.job is None:
+            raise WorkflowError("job_found voice request requires job.")
+        narration = build_narration_result(request.job, content, source="doubao")
+    elif request.scene == "danmu_received":
+        narration = build_danmu_received_result(request, content, source="doubao")
+    else:
+        raise WorkflowError(f"Unsupported voice scene: {request.scene}")
     if not narration.spoken_text:
         raise WorkflowError("Doubao LLM returned empty spoken_text.")
     return narration

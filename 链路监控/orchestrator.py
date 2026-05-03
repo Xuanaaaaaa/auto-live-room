@@ -44,9 +44,10 @@ from aibz_job_search import search_jobs_from_payload, JobSearchError  # noqa: E4
 from job_narration_workflow import (  # noqa: E402
     DoubaoLLMConfig,
     DoubaoTTSConfig,
+    VoiceRequest,
     WorkflowError,
-    generate_script_with_doubao,
-    generate_template_script,
+    generate_template_voice_script,
+    generate_voice_script_with_doubao,
     llm_config_from_env,
     normalize_job,
     synthesize_with_doubao_tts,
@@ -148,6 +149,7 @@ class OrchestratorConfig:
     narration_mode: str = "llm"
     dry_run: bool = False
     page_size: int = 10
+    announce_received_voice: bool = False
 
 
 class Orchestrator:
@@ -180,6 +182,7 @@ class Orchestrator:
             "search": None,
             "narration": None,
             "tts": None,
+            "voices": [],
             "timing": None,
             "error": None,
         }
@@ -190,6 +193,9 @@ class Orchestrator:
             f"raw={trace['danmu']['raw_text']!r}"
         )
         self._emit_event(trace, "received")
+
+        if self.cfg.announce_received_voice:
+            self._step_received_voice(trace, short)
 
         first_job = self._step_search(trace, short)
         if first_job is None:
@@ -218,6 +224,54 @@ class Orchestrator:
         )
         self._emit_event(trace, "completed")
         return trace
+
+    def _generate_voice(self, request: VoiceRequest):
+        if self.cfg.dry_run or self.cfg.narration_mode == "template" or self.cfg.llm_config is None:
+            return generate_template_voice_script(request)
+        return generate_voice_script_with_doubao(request, self.cfg.llm_config)
+
+    def _step_received_voice(self, trace: Dict[str, Any], short: str) -> None:
+        """Optional short acknowledgement right after a parsed danmu is received."""
+        t0 = _now_ms()
+        request = VoiceRequest(scene="danmu_received", danmu=trace.get("danmu"))
+        voice: Dict[str, Any] = {
+            "scene": request.scene,
+            "ok": False,
+            "spoken_text": "",
+            "audio_path": None,
+            "source": None,
+            "duration_ms": 0,
+            "tts_duration_ms": 0,
+            "error": None,
+        }
+        try:
+            narration = self._generate_voice(request)
+            voice.update({
+                "ok": True,
+                "spoken_text": narration.spoken_text,
+                "title": narration.title,
+                "tags": narration.tags,
+                "risk_tips": narration.risk_tips,
+                "source": narration.source,
+                "duration_level": narration.duration_level,
+                "duration_ms": int(_now_ms() - t0),
+            })
+            if self.cfg.enable_tts:
+                tts_start = _now_ms()
+                out_path = self.cfg.audio_dir / f"trace_{trace['trace_id']}_{request.scene}.mp3"
+                synthesize_with_doubao_tts(narration.spoken_text, out_path, self.cfg.tts_config)
+                voice["audio_path"] = str(out_path)
+                voice["audio_size_bytes"] = out_path.stat().st_size
+                voice["tts_duration_ms"] = int(_now_ms() - tts_start)
+        except Exception as exc:
+            voice["error"] = f"{type(exc).__name__}: {exc}"
+            print(f"[{short}] received voice skipped: {voice['error']}")
+
+        trace.setdefault("voices", []).append(voice)
+        if voice["ok"]:
+            preview = voice["spoken_text"][:60].replace("\n", " ")
+            print(f"[{short}] voice [{voice['scene']}]: {preview}...")
+        self._emit_voice_event(trace, voice)
 
     def _step_search(self, trace: Dict[str, Any], short: str) -> Optional[Dict[str, Any]]:
         t0 = _now_ms()
@@ -292,10 +346,16 @@ class Orchestrator:
         t0 = _now_ms()
         try:
             job = normalize_job(first_job)
-            if self.cfg.dry_run or self.cfg.narration_mode == "template" or self.cfg.llm_config is None:
-                narration = generate_template_script(job)
-            else:
-                narration = generate_script_with_doubao(job, self.cfg.llm_config)
+            request = VoiceRequest(
+                scene="job_found",
+                danmu=trace.get("danmu"),
+                job=job,
+                search_summary={
+                    "count": (trace.get("search") or {}).get("count"),
+                    "returned": (trace.get("search") or {}).get("returned"),
+                },
+            )
+            narration = self._generate_voice(request)
         except WorkflowError as exc:
             self._mark_failed(
                 trace, "failed_narration",
@@ -431,6 +491,21 @@ class Orchestrator:
             event["timing"] = trace.get("timing") or _build_timing(trace)
         self.event_writer.write(event)
 
+    def _emit_voice_event(self, trace: Dict[str, Any], voice: Dict[str, Any]) -> None:
+        if self.event_writer is None:
+            return
+        stage = "voice_synthesized" if voice.get("audio_path") else "voice_narrated"
+        self.event_writer.write({
+            "type": "voice",
+            "ts": _now_iso(),
+            "trace_id": trace.get("trace_id"),
+            "stage": stage,
+            "voice_scene": voice.get("scene"),
+            "voice": voice,
+            "audio_path": voice.get("audio_path"),
+            "error": voice.get("error"),
+        })
+
 
 _DRY_SAMPLE_PATH = ROOT / "语音生成" / "examples" / "sample_job_response.json"
 
@@ -496,6 +571,11 @@ def main(argv: Optional[list[str]] = None) -> int:
     p.add_argument("--dry-run", action="store_true",
                    help="不连任何真实 API, 用模板文案 + 跳过 TTS, 验证链路结构")
     p.add_argument("--page-size", type=int, default=10, help="search_jobs page_size")
+    p.add_argument(
+        "--announce-received-voice",
+        action="store_true",
+        help="收到结构化弹幕后先生成一条简短确认语音；默认关闭，避免增加调用成本",
+    )
     # 透传给豆包配置, 默认全空 -> 走 env / 内置默认值
     p.add_argument("--llm-api-key", default="")
     p.add_argument("--llm-base-url", default="")
@@ -536,6 +616,7 @@ def main(argv: Optional[list[str]] = None) -> int:
         narration_mode=args.narration_mode,
         dry_run=args.dry_run,
         page_size=args.page_size,
+        announce_received_voice=args.announce_received_voice,
     )
     event_writer = EventWriter(events_path)
     orch = Orchestrator(cfg, event_writer=event_writer)
@@ -546,6 +627,7 @@ def main(argv: Optional[list[str]] = None) -> int:
     print(f"[init] traces:      {traces_path}")
     print(f"[init] audio dir:   {audio_dir} (tts={'on' if enable_tts else 'off'})")
     print(f"[init] narration:   {args.narration_mode}")
+    print(f"[init] received voice: {'on' if args.announce_received_voice else 'off'}")
     print(f"[init] dry_run:     {args.dry_run}")
 
     try:
