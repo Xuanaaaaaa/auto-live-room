@@ -149,7 +149,7 @@ class OrchestratorConfig:
     narration_mode: str = "llm"
     dry_run: bool = False
     page_size: int = 10
-    announce_received_voice: bool = False
+    announce_received_voice: bool = True
 
 
 class Orchestrator:
@@ -571,11 +571,6 @@ def main(argv: Optional[list[str]] = None) -> int:
     p.add_argument("--dry-run", action="store_true",
                    help="不连任何真实 API, 用模板文案 + 跳过 TTS, 验证链路结构")
     p.add_argument("--page-size", type=int, default=10, help="search_jobs page_size")
-    p.add_argument(
-        "--announce-received-voice",
-        action="store_true",
-        help="收到结构化弹幕后先生成一条简短确认语音；默认关闭，避免增加调用成本",
-    )
     # 透传给豆包配置, 默认全空 -> 走 env / 内置默认值
     p.add_argument("--llm-api-key", default="")
     p.add_argument("--llm-base-url", default="")
@@ -616,7 +611,7 @@ def main(argv: Optional[list[str]] = None) -> int:
         narration_mode=args.narration_mode,
         dry_run=args.dry_run,
         page_size=args.page_size,
-        announce_received_voice=args.announce_received_voice,
+        announce_received_voice=True,
     )
     event_writer = EventWriter(events_path)
     orch = Orchestrator(cfg, event_writer=event_writer)
@@ -627,7 +622,7 @@ def main(argv: Optional[list[str]] = None) -> int:
     print(f"[init] traces:      {traces_path}")
     print(f"[init] audio dir:   {audio_dir} (tts={'on' if enable_tts else 'off'})")
     print(f"[init] narration:   {args.narration_mode}")
-    print(f"[init] received voice: {'on' if args.announce_received_voice else 'off'}")
+    print("[init] received voice: on")
     print(f"[init] dry_run:     {args.dry_run}")
 
     try:
