@@ -220,8 +220,11 @@ def search_jobs(
         path = Path(save_to)
         if path.parent and str(path.parent) != ".":
             path.parent.mkdir(parents=True, exist_ok=True)
+        # 落盘文件只保留前三条岗位，避免独立搜索脚本生成过大的调试 JSON。
+        # 若后续需要恢复全量保存，把这里改回直接 json.dump(result, ...) 即可。
+        save_result = {**result, "data": result.get("data", [])[:3]}
         with open(path, "w", encoding="utf-8") as f:
-            json.dump(result, f, ensure_ascii=False, indent=2)
+            json.dump(save_result, f, ensure_ascii=False, indent=2)
         print(f"[saved] {path.resolve()}")
 
     return result
