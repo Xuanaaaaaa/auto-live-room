@@ -169,13 +169,15 @@ Windows
 
 如果要让 WSL 中生成的 TTS 音频自动进入 Windows OBS，建议把 `AUDIO_DIR` 设置到 `/mnt/c/...` 这类 Windows 可读目录，并设置 `OBS_AUDIO_PATH_MODE=wsl-to-windows`。
 
-详细步骤见 [项目总览与Windows启动流程.md](项目总览与Windows启动流程.md) 和 [docs/Windows迁移教程.md](docs/Windows迁移教程.md)。
+实际运行步骤见 [docs/Windows本地OBS与WSL主链路运行步骤.md](docs/Windows本地OBS与WSL主链路运行步骤.md)。
+详细背景见 [项目总览与Windows启动流程.md](项目总览与Windows启动流程.md) 和 [docs/Windows迁移教程.md](docs/Windows迁移教程.md)。
 
 ## 补充文档
 
 - [项目总览与Windows启动流程.md](项目总览与Windows启动流程.md)
 - [docs/全链路运行手册.md](docs/全链路运行手册.md)
 - [docs/部署脚本说明.md](docs/部署脚本说明.md)
+- [docs/Windows本地OBS与WSL主链路运行步骤.md](docs/Windows本地OBS与WSL主链路运行步骤.md)
 - [docs/Windows迁移教程.md](docs/Windows迁移教程.md)
 - [docs/Windows OBS音频播放对接手册.md](docs/Windows%20OBS音频播放对接手册.md)
 - [docs/小程序UI自动化合并说明.md](docs/小程序UI自动化合并说明.md)
