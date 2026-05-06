@@ -17,6 +17,16 @@ import orchestrator  # noqa: E402
 
 
 class OrchestratorNarrationModeTests(unittest.TestCase):
+    def test_audio_file_path_includes_sequence_and_scene(self) -> None:
+        path = orchestrator._audio_file_path(
+            Path("/tmp/audio"),
+            "abc123",
+            2,
+            "job_found",
+        )
+
+        self.assertEqual(path, Path("/tmp/audio/trace_abc123_02_job_found.mp3"))
+
     def test_template_mode_does_not_require_llm_config_when_tts_is_disabled(self) -> None:
         args = argparse.Namespace(
             dry_run=False,

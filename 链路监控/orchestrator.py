@@ -85,6 +85,10 @@ def _build_timing(trace: Dict[str, Any]) -> Dict[str, int]:
     }
 
 
+def _audio_file_path(audio_dir: Path, trace_id: str, sequence: int, scene: str) -> Path:
+    return audio_dir / f"trace_{trace_id}_{sequence:02d}_{scene}.mp3"
+
+
 def tail_jsonl(path: Path, from_start: bool = False) -> Generator[Dict[str, Any], None, None]:
     """tail -F 一个 jsonl, yield 每行解析后的 dict. 文件不存在时阻塞等待."""
     while not path.exists():
@@ -258,7 +262,7 @@ class Orchestrator:
             })
             if self.cfg.enable_tts:
                 tts_start = _now_ms()
-                out_path = self.cfg.audio_dir / f"trace_{trace['trace_id']}_{request.scene}.mp3"
+                out_path = _audio_file_path(self.cfg.audio_dir, trace["trace_id"], 1, request.scene)
                 synthesize_with_doubao_tts(narration.spoken_text, out_path, self.cfg.tts_config)
                 voice["audio_path"] = str(out_path)
                 voice["audio_size_bytes"] = out_path.stat().st_size
@@ -396,7 +400,7 @@ class Orchestrator:
 
     def _step_tts(self, trace: Dict[str, Any], spoken: str, short: str) -> bool:
         t0 = _now_ms()
-        out_path = self.cfg.audio_dir / f"trace_{trace['trace_id']}.mp3"
+        out_path = _audio_file_path(self.cfg.audio_dir, trace["trace_id"], 2, "job_found")
         try:
             synthesize_with_doubao_tts(spoken, out_path, self.cfg.tts_config)
         except WorkflowError as exc:
