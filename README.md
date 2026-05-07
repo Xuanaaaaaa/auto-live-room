@@ -21,6 +21,7 @@ git clone https://github.com/Xuanaaaaaa/automation.git automation
 ```
 
 完整架构、数据流和 Windows 启动流程见 [项目总览与Windows启动流程.md](项目总览与Windows启动流程.md)。
+如果是在一台新电脑上从零部署，请优先阅读 [新电脑部署运行全流程.md](新电脑部署运行全流程.md)。
 
 ## 项目结构
 
@@ -37,6 +38,8 @@ docs/                             迁移、部署、OBS、小程序合并等补�
 根目录仅保留主要入口文档：`README.md` 和 `项目总览与Windows启动流程.md`。其他说明文档集中放在 `docs/`。
 
 ## 快速开始
+
+如果是第一次在新电脑部署，推荐先按 [新电脑部署运行全流程.md](新电脑部署运行全流程.md) 准备 Windows、WSL2、OBS、微信开发者工具、Node.js、Python、环境变量和 `D:\workspace\automation` 配套项目。
 
 ```bash
 git clone https://github.com/Xuanaaaaaa/auto-live-room.git
@@ -167,14 +170,38 @@ Windows
   └─ WSL2 Ubuntu 运行 auto-live-room
 ```
 
+新电脑完整部署推荐形态：
+
+```text
+Windows 宿主机
+  ├─ OBS Studio
+  ├─ 微信开发者工具
+  ├─ Node.js
+  ├─ D:\workspace\automation
+  └─ WSL2 Ubuntu
+       └─ /home/<Ubuntu用户名>/auto-live-room
+```
+
+两套项目通过结构化弹幕 JSONL 配套运行：
+
+```text
+auto-live-room 生成：
+/home/<Ubuntu用户名>/auto-live-room/弹幕提取/DouyinLiveWebFetcher/output/*.jsonl
+
+automation 监听：
+\\wsl.localhost\Ubuntu\home\<Ubuntu用户名>\auto-live-room\弹幕提取\DouyinLiveWebFetcher\output
+```
+
 如果要让 WSL 中生成的 TTS 音频自动进入 Windows OBS，建议把 `AUDIO_DIR` 设置到 `/mnt/c/...` 这类 Windows 可读目录，并设置 `OBS_AUDIO_PATH_MODE=wsl-to-windows`。
 
+新电脑部署、环境变量、软件要求、启动顺序、关停流程和常见问题排查见 [新电脑部署运行全流程.md](新电脑部署运行全流程.md)。
 实际运行步骤见 [docs/Windows本地OBS与WSL主链路运行步骤.md](docs/Windows本地OBS与WSL主链路运行步骤.md)。
 详细背景见 [项目总览与Windows启动流程.md](项目总览与Windows启动流程.md) 和 [docs/Windows迁移教程.md](docs/Windows迁移教程.md)。
 
 ## 补充文档
 
 - [项目总览与Windows启动流程.md](项目总览与Windows启动流程.md)
+- [新电脑部署运行全流程.md](新电脑部署运行全流程.md)
 - [docs/全链路运行手册.md](docs/全链路运行手册.md)
 - [docs/部署脚本说明.md](docs/部署脚本说明.md)
 - [docs/Windows本地OBS与WSL主链路运行步骤.md](docs/Windows本地OBS与WSL主链路运行步骤.md)
