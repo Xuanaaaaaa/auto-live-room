@@ -260,8 +260,10 @@ def build_job_found_messages(request: VoiceRequest) -> list[dict[str, str]]:
 3. 不要过度热情，不要像带货广告、新闻播报、招聘公告或官方通知。
 4. 不要使用“接下来播报”“为大家介绍”“岗位来了”“各位求职朋友”“该岗位位于”“求职者可关注”等广播腔表达。
 5. 字段缺失时不要硬说，用“页面暂时没写清楚”这类保守表达。
-6. 控制在 90 到 150 个中文字符之间，适合 10 到 18 秒说完。
-7. 只输出口播文案本身，不要输出 JSON、Markdown、标题、标签、解释或前后缀。
+6. 遇到英文缩写、英文品牌或技术词时，优先改写成适合中文 TTS 朗读的说法：LLM 说“大语言模型”，AI 说“人工智能”，API 说“接口”，URL 说“链接”，GPT 说“G P T”；不要输出 llm、api、gpt 这类连续小写英文缩写。
+7. 常见技术栈如 Java、Python、Spring 可以按原词保留；如果必须保留英文缩写，请用大写字母并用空格分开，例如“G P T”“O B S”。
+8. 控制在 90 到 150 个中文字符之间，适合 10 到 18 秒说完。
+9. 只输出口播文案本身，不要输出 JSON、Markdown、标题、标签、解释或前后缀。
 """.strip()
     user_prompt = "查岗上下文和岗位页面 JSON 如下，请写成主播正在帮观众查岗时说的话：\n" + json.dumps(
         compact_request, ensure_ascii=False
@@ -300,9 +302,10 @@ def build_danmu_received_messages(request: VoiceRequest) -> list[dict[str, str]]
 4. 如果弹幕里有岗位、城市、学历等条件，可以顺带复述一两个关键信息。
 5. 不要说“你”“你的”，要说“有观众”“这位观众”“刚刚有朋友”“这条弹幕”。
 6. 优先使用 JSON 里的 style_hint.preferred_opening 作为开头，让不同弹幕有不同说法。
-7. 控制在 25 到 60 个中文字符之间，适合快速插一句。
-8. 同样语义可以换不同说法，不要每次都套同一个句式。
-9. 只输出主播要说的话，不要输出 JSON、Markdown、标题或解释。
+7. 遇到英文缩写或技术词时，优先改写成适合中文 TTS 朗读的说法：LLM 说“大语言模型”，AI 说“人工智能”，API 说“接口”，URL 说“链接”，GPT 说“G P T”；不要输出 llm、api、gpt 这类连续小写英文缩写。
+8. 控制在 25 到 60 个中文字符之间，适合快速插一句。
+9. 同样语义可以换不同说法，不要每次都套同一个句式。
+10. 只输出主播要说的话，不要输出 JSON、Markdown、标题或解释。
 """.strip()
     user_prompt = "观众弹幕查询 JSON 如下，请写成主播刚看到弹幕时的简短回应：\n" + json.dumps(
         compact_request, ensure_ascii=False

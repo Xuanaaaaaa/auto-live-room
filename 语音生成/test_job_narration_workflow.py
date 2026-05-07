@@ -99,6 +99,8 @@ class TemplateNarrationTests(unittest.TestCase):
         prompt = "\n".join(message["content"] for message in messages)
 
         self.assertIn("只输出口播文案本身", prompt)
+        self.assertIn("LLM 说“大语言模型”", prompt)
+        self.assertIn("不要输出 llm、api、gpt", prompt)
         self.assertNotIn("JSON 输出格式", prompt)
         self.assertNotIn("必须只输出 JSON", prompt)
 
